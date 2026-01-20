@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>日本清关/派送 Excel 自动处理系统 - 原型</title>
+
+  <!-- Vue 3 + Element Plus (CDN prototype) -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
+  <script src="https://unpkg.com/element-plus/dist/index.full.min.js"></script>
+
+  <style>
+    :root { --bg: #f6f7fb; }
+    body { margin: 0; background: var(--bg); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; }
+    .app-shell { height: 100vh; display: flex; flex-direction: column; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; background:#ffffff; border-bottom: 1px solid #eaecef; }
+    .brand { display:flex; align-items:center; gap:10px; }
+    .brand-badge { width: 28px; height: 28px; border-radius: 10px; background: #2f54eb; }
+    .brand-title { font-weight: 700; }
+    .content { flex: 1; display:flex; min-height: 0; }
+    .sidebar { width: 240px; background:#fff; border-right:1px solid #eaecef; padding: 10px; }
+    .main { flex: 1; padding: 16px; overflow:auto; }
+    .card { background:#fff; border:1px solid #eaecef; border-radius: 14px; }
+    .card-hd { padding: 14px 14px 0 14px; display:flex; align-items:center; justify-content:space-between; gap: 12px; }
+    .card-bd { padding: 14px; }
+    .muted { color:#6b7280; }
+    .kpi { display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+    .kpi .box { padding: 12px; border-radius: 12px; border: 1px solid #eaecef; background: #fff; }
+    .kpi .label { font-size: 12px; color:#6b7280; }
+    .kpi .value { font-weight: 800; font-size: 18px; margin-top: 4px; }
+    .split { display:grid; grid-template-columns: 1.25fr 0.75fr; gap: 12px; }
+    .tag-pill { display:inline-flex; align-items:center; gap:6px; padding: 2px 10px; border-radius: 999px; border:1px solid #eaecef; background:#fff; font-size: 12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .footer-note { font-size: 12px; color:#6b7280; margin-top: 10px; }
+    .login-wrap { height: 100vh; display:flex; align-items:center; justify-content:center; padding: 16px; }
+    .login-card { width: 980px; max-width: 100%; display:grid; grid-template-columns: 1.2fr 0.8fr; overflow:hidden; border-radius: 18px; border: 1px solid #eaecef; background:#fff; }
+    .login-left { padding: 28px; background: linear-gradient(135deg, #2f54eb 0%, #1f1f1f 120%); color: #fff; }
+    .login-left h1 { margin: 0 0 6px; font-size: 22px; }
+    .login-left p { margin: 0; opacity: .9; }
+    .login-right { padding: 28px; }
+    .section-title { font-weight: 800; margin: 0 0 10px; }
+    .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .danger-box { border: 1px dashed #f56c6c; padding: 10px; border-radius: 12px; background: #fff5f5; color: #b42318; }
+    @media (max-width: 980px) {
+      .login-card { grid-template-columns: 1fr; }
+      .sidebar { display:none; }
+      .split { grid-template-columns: 1fr; }
+      .kpi { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+<div id="app"></div>
+
+<script>
+const { createApp, reactive, ref, computed } = Vue;
+
+createApp({
+  setup() {
+    // ----- Mock auth state -----
+    const auth = reactive({
+      loggedIn: false,
+      token: "",
+      user: { id: "u_123", username: "admin", display_name: "Admin", role: "admin" }
+    });
+
+    // ----- Global UI state -----
+    const route = ref("tasks"); // tasks | task_detail | admin_rules | admin_templates | admin_ai | admin_users | admin_logs
+    const activeTaskId = ref("t_001");
+
+    // ----- Mock data -----
+    const tasks = ref([
+      { id: "t_001", file_type: "customs", unique_code: "UC001", flight_no: "NH123", declare_date: "2026-01-20", status: "success", created_at: "2026-01-20T01:02:03Z" },
+      { id: "t_002", file_type: "delivery", unique_code: "UC002", flight_no: "", declare_date: "", status: "failed", created_at: "2026-01-20T02:10:11Z" },
+      { id: "t_003", file_type: "customs", unique_code: "UC003", flight_no: "JL777", declare_date: "2026-01-19", status: "processing", created_at: "2026-01-20T03:33:09Z" },
+    ]);
+
+    const taskDetail = computed(() => {
+      const t = tasks.value.find(x => x.id === activeTaskId.value) || tasks.value[0];
+      return {
+        ...t,
+        progress_stage: t.status === "processing" ? "fill" : (t.status === "success" ? "done" : "failed"),
+        stats: t.status === "success" ? {
+          total_rows: 120, fixed_count: 86, filled_count: 42, fx_changed_rows: 120, llm_filled_count: 15
+        } : null,
+        error: t.status === "failed" ? {
+          code: "RULE_VALIDATION_FAILED",
+          message: "字段A不符合12位数字要求",
+          detail: { sheet: "Sheet1", row: 23, col: "A" }
+        } : null
+      };
+    });
+
+    // ----- Filters -----
+    const filters = reactive({
+      file_type: "",
+      status: "",
+      unique_code: ""
+    });
+
+    const filteredTasks = computed(() => {
+      return tasks.value.filter(t => {
+        if (filters.file_type && t.file_type !== filters.file_type) return false;
+        if (filters.status && t.status !== filters.status) return false;
+        if (filters.unique_code && !String(t.unique_code).includes(filters.unique_code)) return false;
+        return true;
+      });
+    });
+
+    // ----- Create task dialog -----
+    const createDialog = ref(false);
+    const createForm = reactive({
+      file_type: "customs",
+      unique_code: "",
+      flight_no: "",
+      declare_date: "",
+      file: null
+    });
+
+    const handleFileChange = (file) => { createForm.file = file; };
+
+    const submitCreate = () => {
+      // prototype: add a mock task
+      const id = "t_" + String(Math.floor(Math.random() * 9000 + 1000));
+      tasks.value.unshift({
+        id,
+        file_type: createForm.file_type,
+        unique_code: createForm.unique_code || "UC_NEW",
+        flight_no: createForm.file_type === "customs" ? (createForm.flight_no || "NH000") : "",
+        declare_date: createForm.file_type === "customs" ? (createForm.declare_date || "2026-01-20") : "",
+        status: "queued",
+        created_at: new Date().toISOString()
+      });
+      createDialog.value = false;
+      activeTaskId.value = id;
+      route.value = "task_detail";
+      ElementPlus.ElMessage.success("已创建任务（原型模拟）");
+    };
+
+    const runTask = () => {
+      const idx = tasks.value.findIndex(t => t.id === activeTaskId.value);
+      if (idx >= 0) {
+        tasks.value[idx].status = "processing";
+        ElementPlus.ElMessage.info("开始处理（原型模拟）");
+        // simulate finish
+        setTimeout(() => {
+          tasks.value[idx].status = "success";
+          ElementPlus.ElMessage.success("处理完成（原型模拟）");
+        }, 800);
+      }
+    };
+
+    // ----- Admin mock data -----
+    const ruleTables = ref([
+      { id: "rt_1", code: "MAP_CUSTOMS", file_type: "customs", rule_stage: "MAP", enabled: true, description: "原始→最终字段映射（清关）" },
+      { id: "rt_2", code: "PROCESS_CUSTOMS", file_type: "customs", rule_stage: "PROCESS", enabled: true, description: "最终文件字段校验/修正/生成（清关）" },
+      { id: "rt_3", code: "MAP_DELIVERY", file_type: "delivery", rule_stage: "MAP", enabled: true, description: "原始→最终字段映射（派送）" },
+      { id: "rt_4", code: "PROCESS_DELIVERY", file_type: "delivery", rule_stage: "PROCESS", enabled: true, description: "最终文件字段校验/修正/生成（派送）" },
+    ]);
+
+    const templateMappings = ref([
+      { id: "tm_1", mapping_code: "TM_CUSTOMS_V1", file_type: "customs", sheet_match_mode: "name", sheet_match_value: "Sheet1", enabled: true },
+      { id: "tm_2", mapping_code: "TM_DELIVERY_V1", file_type: "delivery", sheet_match_mode: "name", sheet_match_value: "Sheet1", enabled: true },
+    ]);
+
+    const aiCaps = ref([
+      { id: "aic_1", file_type: "customs", target_column: "B", capability_code: "JP_NAME_FILL", depends_on: "B,C,D,E", on_fail: "block", enabled: true },
+      { id: "aic_2", file_type: "customs", target_column: "F", capability_code: "JP_PRODUCT_DESC_FILL", depends_on: "C,D,E", on_fail: "block", enabled: true },
+    ]);
+
+    const users = ref([
+      { id: "u_123", username: "admin", display_name: "Admin", role: "admin", enabled: true },
+      { id: "u_200", username: "op1", display_name: "操作员1", role: "operator", enabled: true },
+    ]);
+
+    const logs = ref([
+      { id: "log_1", created_at: "2026-01-20T01:02:03Z", user: "admin", action: "TASK_CREATED", entity: "task:t_001", success: true, message: "created" },
+      { id: "log_2", created_at: "2026-01-20T01:02:20Z", user: "admin", action: "TASK_SUCCEEDED", entity: "task:t_001", success: true, message: "success" },
+      { id: "log_3", created_at: "2026-01-20T02:10:11Z", user: "op1", action: "TASK_FAILED", entity: "task:t_002", success: false, message: "RULE_VALIDATION_FAILED" },
+    ]);
+
+    // ----- Login form -----
+    const loginForm = reactive({ username: "admin", password: "123456" });
+    const doLogin = () => {
+      if (!loginForm.username || !loginForm.password) {
+        ElementPlus.ElMessage.error("请输入账号密码");
+        return;
+      }
+      auth.loggedIn = true;
+      auth.token = "mock-jwt";
+      auth.user.username = loginForm.username;
+      auth.user.role = loginForm.username === "admin" ? "admin" : "operator";
+      ElementPlus.ElMessage.success("登录成功（原型）");
+    };
+
+    const doLogout = () => {
+      auth.loggedIn = false;
+      auth.token = "";
+      route.value = "tasks";
+    };
+
+    const menuItems = computed(() => {
+      const base = [
+        { key: "tasks", label: "任务中心", icon: "📄" }
+      ];
+      if (auth.user.role === "admin") {
+        base.push(
+          { key: "admin_rules", label: "规则配置", icon: "🧩" },
+          { key: "admin_templates", label: "模板映射", icon: "🗂️" },
+          { key: "admin_ai", label: "AI 能力配置", icon: "🤖" },
+          { key: "admin_users", label: "用户管理", icon: "👤" },
+          { key: "admin_logs", label: "操作日志", icon: "🧾" },
+        );
+      }
+      return base;
+    });
+
+    const goTaskDetail = (id) => { activeTaskId.value = id; route.value = "task_detail"; };
+
+    // Download prototype (just toast)
+    const downloadFile = (kind) => {
+      ElementPlus.ElMessage.success(`下载 ${kind}（原型模拟）`);
+    };
+
+    // Import prototype
+    const importDialog = ref(false);
+    const importFile = ref(null);
+    const onImportChange = (file) => { importFile.value = file; };
+    const doImport = () => {
+      importDialog.value = false;
+      ElementPlus.ElMessage.success("导入完成（原型模拟）");
+    };
+
+    return {
+      auth, route, menuItems,
+      tasks, filters, filteredTasks,
+      createDialog, createForm, handleFileChange, submitCreate,
+      activeTaskId, taskDetail, goTaskDetail, runTask,
+      ruleTables, templateMappings, aiCaps, users, logs,
+      loginForm, doLogin, doLogout,
+      downloadFile,
+      importDialog, onImportChange, doImport
+    };
+  },
+
+  template: `
+  <div>
+    <!-- LOGIN -->
+    <div v-if="!auth.loggedIn" class="login-wrap">
+      <div class="login-card">
+        <div class="login-left">
+          <div class="brand">
+            <div class="brand-badge"></div>
+            <div>
+              <div class="brand-title">日本清关/派送 Excel 自动处理系统</div>
+              <div class="muted" style="color: rgba(255,255,255,.85); font-size: 12px;">原型 Demo（Vue3 + Element Plus）</div>
+            </div>
+          </div>
+          <div style="margin-top: 18px;">
+            <h1>一站式上传 → 修复/补齐 → 下载</h1>
+            <p>支持清关文件 / 派送文件 · 规则驱动 · AI 字段补齐 · 输出对比与统计</p>
+          </div>
+          <div style="margin-top: 18px;" class="danger-box">
+            原型提示：该页面无真实后端，仅用于确认页面结构与交互流程。
+          </div>
+        </div>
+        <div class="login-right">
+          <div class="section-title">登录</div>
+          <el-form label-position="top">
+            <el-form-item label="账号">
+              <el-input v-model="loginForm.username" placeholder="请输入账号"></el-input>
+            </el-form-item>
+            <el-form-item label="密码">
+              <el-input v-model="loginForm.password" placeholder="请输入密码" show-password></el-input>
+            </el-form-item>
+            <el-button type="primary" style="width: 100%;" @click="doLogin">登录</el-button>
+            <div class="footer-note">登录后可访问任务中心；管理员可进入配置中心。</div>
+          </el-form>
+        </div>
+      </div>
+    </div>
+
+    <!-- APP -->
+    <div v-else class="app-shell">
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-badge"></div>
+          <div>
+            <div class="brand-title">日本清关/派送 Excel 自动处理系统</div>
+            <div class="muted" style="font-size: 12px;">
+              当前用户：<span class="mono">{{auth.user.username}}</span> · 角色：<span class="mono">{{auth.user.role}}</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; gap: 8px; align-items:center;">
+          <el-button @click="route='tasks'">任务中心</el-button>
+          <el-button type="danger" plain @click="doLogout">退出</el-button>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="sidebar">
+          <el-menu :default-active="route" @select="(k)=>route=k" style="border-right: none;">
+            <el-menu-item v-for="m in menuItems" :key="m.key" :index="m.key">
+              <span style="margin-right:8px;">{{m.icon}}</span>
+              <span>{{m.label}}</span>
+            </el-menu-item>
+          </el-menu>
+          <div class="footer-note">
+            原型：侧边栏随角色变化。下载不做额外鉴权（仅登录）。
+          </div>
+        </div>
+
+        <div class="main">
+          <!-- TASK LIST -->
+          <div v-if="route==='tasks'" class="card">
+            <div class="card-hd">
+              <div>
+                <div class="section-title">任务中心</div>
+                <div class="muted">上传 1 个 Excel → 生成结果 Excel、对比文件、变化统计</div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <el-button type="primary" @click="createDialog=true">新建任务</el-button>
+              </div>
+            </div>
+
+            <div class="card-bd">
+              <div class="grid-2" style="margin-bottom: 10px;">
+                <el-select v-model="filters.file_type" placeholder="文件类型（全部）" clearable>
+                  <el-option label="清关文件" value="customs"></el-option>
+                  <el-option label="派送文件" value="delivery"></el-option>
+                </el-select>
+
+                <el-select v-model="filters.status" placeholder="状态（全部）" clearable>
+                  <el-option label="queued" value="queued"></el-option>
+                  <el-option label="processing" value="processing"></el-option>
+                  <el-option label="success" value="success"></el-option>
+                  <el-option label="failed" value="failed"></el-option>
+                </el-select>
+
+                <el-input v-model="filters.unique_code" placeholder="唯一编码（模糊匹配）"></el-input>
+                <div></div>
+              </div>
+
+              <el-table :data="filteredTasks" style="width:100%;" @row-click="(row)=>goTaskDetail(row.id)">
+                <el-table-column prop="id" label="任务ID" width="120"></el-table-column>
+                <el-table-column prop="file_type" label="类型" width="120">
+                  <template #default="{row}">
+                    <span class="tag-pill">{{ row.file_type==='customs' ? '清关' : '派送' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="unique_code" label="唯一编码" width="140"></el-table-column>
+                <el-table-column prop="flight_no" label="航空号" width="120"></el-table-column>
+                <el-table-column prop="declare_date" label="报关日期" width="120"></el-table-column>
+                <el-table-column prop="status" label="状态" width="120">
+                  <template #default="{row}">
+                    <el-tag v-if="row.status==='success'" type="success">success</el-tag>
+                    <el-tag v-else-if="row.status==='failed'" type="danger">failed</el-tag>
+                    <el-tag v-else-if="row.status==='processing'" type="warning">processing</el-tag>
+                    <el-tag v-else>queued</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="created_at" label="创建时间"></el-table-column>
+              </el-table>
+
+              <div class="footer-note">
+                点击任意行进入任务详情。原型中下载/运行均为模拟。
+              </div>
+            </div>
+          </div>
+
+          <!-- TASK DETAIL -->
+          <div v-else-if="route==='task_detail'" class="split">
+            <div class="card">
+              <div class="card-hd">
+                <div>
+                  <div class="section-title">任务详情</div>
+                  <div class="muted">任务ID：<span class="mono">{{taskDetail.id}}</span></div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <el-button @click="route='tasks'">返回列表</el-button>
+                  <el-button type="primary" :disabled="taskDetail.status==='processing'" @click="runTask">运行任务</el-button>
+                </div>
+              </div>
+
+              <div class="card-bd">
+                <div style="display:flex; gap:10px; flex-wrap: wrap; margin-bottom: 12px;">
+                  <span class="tag-pill">类型：{{taskDetail.file_type==='customs'?'清关':'派送'}}</span>
+                  <span class="tag-pill">唯一编码：<span class="mono">{{taskDetail.unique_code}}</span></span>
+                  <span v-if="taskDetail.file_type==='customs'" class="tag-pill">航空号：<span class="mono">{{taskDetail.flight_no}}</span></span>
+                  <span v-if="taskDetail.file_type==='customs'" class="tag-pill">报关日期：<span class="mono">{{taskDetail.declare_date}}</span></span>
+                  <span class="tag-pill">状态：
+                    <el-tag v-if="taskDetail.status==='success'" type="success">success</el-tag>
+                    <el-tag v-else-if="taskDetail.status==='failed'" type="danger">failed</el-tag>
+                    <el-tag v-else-if="taskDetail.status==='processing'" type="warning">processing</el-tag>
+                    <el-tag v-else>queued</el-tag>
+                  </span>
+                </div>
+
+                <el-divider />
+
+                <div class="section-title" style="margin-bottom: 8px;">文件下载</div>
+                <div style="display:flex; gap:8px; flex-wrap: wrap;">
+                  <el-button @click="downloadFile('original')">下载原始文件</el-button>
+                  <el-button type="primary" @click="downloadFile('result')" :disabled="taskDetail.status!=='success'">下载结果文件</el-button>
+                  <el-button @click="downloadFile('diff')" :disabled="taskDetail.status!=='success'">下载对比文件</el-button>
+                </div>
+                <div class="footer-note">
+                  一期：下载不做额外鉴权（仅登录即可）。处理失败时不提供结果/对比。
+                </div>
+
+                <el-divider />
+
+                <div v-if="taskDetail.status==='success'">
+                  <div class="section-title" style="margin-bottom: 8px;">变化统计</div>
+                  <div class="kpi">
+                    <div class="box"><div class="label">总行数</div><div class="value">{{taskDetail.stats.total_rows}}</div></div>
+                    <div class="box"><div class="label">修复字段数</div><div class="value">{{taskDetail.stats.fixed_count}}</div></div>
+                    <div class="box"><div class="label">补齐字段数</div><div class="value">{{taskDetail.stats.filled_count}}</div></div>
+                    <div class="box"><div class="label">汇率变更行数</div><div class="value">{{taskDetail.stats.fx_changed_rows}}</div></div>
+                    <div class="box"><div class="label">LLM补齐字段数</div><div class="value">{{taskDetail.stats.llm_filled_count}}</div></div>
+                  </div>
+                </div>
+
+                <div v-else-if="taskDetail.status==='failed'">
+                  <div class="section-title" style="margin-bottom: 8px;">失败原因</div>
+                  <el-alert type="error" :closable="false"
+                    :title="taskDetail.error.message"
+                    :description="'错误码：'+taskDetail.error.code+'；位置：'+taskDetail.error.detail.sheet+' R'+taskDetail.error.detail.row+' C'+taskDetail.error.detail.col">
+                  </el-alert>
+                </div>
+
+                <div v-else>
+                  <el-alert type="info" :closable="false" title="等待处理或处理中" description="processing 阶段可展示进度与日志（一期可简化）。"></el-alert>
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT: Config snapshot -->
+            <div class="card">
+              <div class="card-hd">
+                <div>
+                  <div class="section-title">处理配置快照（展示）</div>
+                  <div class="muted">模板映射 + MAP + PROCESS + AI 能力</div>
+                </div>
+              </div>
+              <div class="card-bd">
+                <el-collapse accordion>
+                  <el-collapse-item title="模板映射（template_mappings）" name="1">
+                    <div class="muted">用于识别 Sheet、绑定原始列到 source_key</div>
+                    <div style="margin-top:8px;">
+                      <el-tag>sheet_match: Sheet1</el-tag>
+                      <div class="footer-note">原型中仅展示，不做编辑。</div>
+                    </div>
+                  </el-collapse-item>
+
+                  <el-collapse-item title="字段映射（MAP）" name="2">
+                    <div class="muted">定义最终列值从哪里来：COPY/DROP/DERIVE</div>
+                    <div class="footer-note">DERIVE 可能走 AI 或计算；COPY 取原始列；DROP 不输出。</div>
+                  </el-collapse-item>
+
+                  <el-collapse-item title="字段处理（PROCESS）" name="3">
+                    <div class="muted">RULE_FIX / CALC / AI，且依赖关系不同</div>
+                    <div class="footer-note">RULE_FIX 仅依赖自身；CALC/AI 可依赖其他列。</div>
+                  </el-collapse-item>
+
+                  <el-collapse-item title="AI 能力（ai_field_capabilities）" name="4">
+                    <div class="muted">列级 prompt / 约束 / 失败策略</div>
+                    <div class="footer-note">用于 PROCESS 阶段 field_type=AI 的执行。</div>
+                  </el-collapse-item>
+                </el-collapse>
+              </div>
+            </div>
+          </div>
+
+          <!-- ADMIN: RULES -->
+          <div v-else-if="route==='admin_rules'" class="card">
+            <div class="card-hd">
+              <div>
+                <div class="section-title">规则配置</div>
+                <div class="muted">rule_tables / rule_items · 支持导入模板</div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <el-button type="primary" @click="importDialog=true">导入规则模板</el-button>
+              </div>
+            </div>
+
+            <div class="card-bd">
+              <el-table :data="ruleTables" style="width:100%;">
+                <el-table-column prop="code" label="code" width="170"></el-table-column>
+                <el-table-column prop="file_type" label="file_type" width="120"></el-table-column>
+                <el-table-column prop="rule_stage" label="stage" width="120"></el-table-column>
+                <el-table-column prop="enabled" label="enabled" width="120">
+                  <template #default="{row}">
+                    <el-switch v-model="row.enabled"></el-switch>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="description" label="description"></el-table-column>
+              </el-table>
+
+              <div class="footer-note">
+                原型：rule_items 的增删改查可在二级页面完成（此处省略）。真实实现建议：支持按表筛选、编辑、排序、校验。
+              </div>
+            </div>
+          </div>
+
+          <!-- ADMIN: TEMPLATES -->
+          <div v-else-if="route==='admin_templates'" class="card">
+            <div class="card-hd">
+              <div>
+                <div class="section-title">模板映射（template_mappings）</div>
+                <div class="muted">解决原始 Excel 模板差异：Sheet 识别 + 列绑定</div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <el-button type="primary">新增映射</el-button>
+              </div>
+            </div>
+            <div class="card-bd">
+              <el-table :data="templateMappings" style="width:100%;">
+                <el-table-column prop="mapping_code" label="mapping_code" width="200"></el-table-column>
+                <el-table-column prop="file_type" label="file_type" width="120"></el-table-column>
+                <el-table-column prop="sheet_match_mode" label="sheet_match_mode" width="150"></el-table-column>
+                <el-table-column prop="sheet_match_value" label="sheet_match_value" width="160"></el-table-column>
+                <el-table-column prop="enabled" label="enabled" width="120">
+                  <template #default="{row}"><el-switch v-model="row.enabled"></el-switch></template>
+                </el-table-column>
+                <el-table-column label="操作" width="160">
+                  <template #default>
+                    <el-button size="small">编辑</el-button>
+                    <el-button size="small" type="primary" plain>校验</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div class="footer-note">
+                建议编辑页：支持 JSON 编辑器（column_bindings_json）、一键校验 required source_key 是否能解析。
+              </div>
+            </div>
+          </div>
+
+          <!-- ADMIN: AI -->
+          <div v-else-if="route==='admin_ai'" class="card">
+            <div class="card-hd">
+              <div>
+                <div class="section-title">AI 能力配置（ai_field_capabilities）</div>
+                <div class="muted">按列配置 capability / depends_on / prompt / 输出约束</div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <el-button type="primary">新增 AI 配置</el-button>
+              </div>
+            </div>
+            <div class="card-bd">
+              <el-table :data="aiCaps" style="width:100%;">
+                <el-table-column prop="file_type" label="file_type" width="120"></el-table-column>
+                <el-table-column prop="target_column" label="target_column" width="140"></el-table-column>
+                <el-table-column prop="capability_code" label="capability_code" width="220"></el-table-column>
+                <el-table-column prop="depends_on" label="depends_on" width="200"></el-table-column>
+                <el-table-column prop="on_fail" label="on_fail" width="120"></el-table-column>
+                <el-table-column prop="enabled" label="enabled" width="120">
+                  <template #default="{row}"><el-switch v-model="row.enabled"></el-switch></template>
+                </el-table-column>
+                <el-table-column label="操作" width="160">
+                  <template #default>
+                    <el-button size="small">编辑</el-button>
+                    <el-button size="small" type="danger" plain>删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div class="footer-note">
+                编辑页应包含：prompt_template、多语言、output_constraints_json（max_length/charset/not_empty）。
+              </div>
+            </div>
+          </div>
+
+          <!-- ADMIN: USERS -->
+          <div v-else-if="route==='admin_users'" class="card">
+            <div class="card-hd">
+              <div>
+                <div class="section-title">用户管理</div>
+                <div class="muted">创建用户、启用/禁用、重置密码</div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <el-button type="primary">新增用户</el-button>
+              </div>
+            </div>
+            <div class="card-bd">
+              <el-table :data="users" style="width:100%;">
+                <el-table-column prop="username" label="username" width="180"></el-table-column>
+                <el-table-column prop="display_name" label="display_name" width="180"></el-table-column>
+                <el-table-column prop="role" label="role" width="140">
+                  <template #default="{row}">
+                    <el-tag v-if="row.role==='admin'" type="warning">admin</el-tag>
+                    <el-tag v-else>operator</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="enabled" label="enabled" width="140">
+                  <template #default="{row}"><el-switch v-model="row.enabled"></el-switch></template>
+                </el-table-column>
+                <el-table-column label="操作" width="220">
+                  <template #default>
+                    <el-button size="small">重置密码</el-button>
+                    <el-button size="small" type="danger" plain>删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </div>
+
+          <!-- ADMIN: LOGS -->
+          <div v-else-if="route==='admin_logs'" class="card">
+            <div class="card-hd">
+              <div>
+                <div class="section-title">操作日志</div>
+                <div class="muted">登录 / 创建任务 / 成功失败 / 配置变更</div>
+              </div>
+            </div>
+            <div class="card-bd">
+              <el-table :data="logs" style="width:100%;">
+                <el-table-column prop="created_at" label="time" width="200"></el-table-column>
+                <el-table-column prop="user" label="user" width="120"></el-table-column>
+                <el-table-column prop="action" label="action" width="180"></el-table-column>
+                <el-table-column prop="entity" label="entity" width="160"></el-table-column>
+                <el-table-column prop="success" label="success" width="120">
+                  <template #default="{row}">
+                    <el-tag v-if="row.success" type="success">true</el-tag>
+                    <el-tag v-else type="danger">false</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="message" label="message"></el-table-column>
+              </el-table>
+              <div class="footer-note">
+                一期建议：日志只读；二期可增加筛选与导出。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create Task Dialog -->
+      <el-dialog v-model="createDialog" title="新建任务（上传 Excel）" width="720px">
+        <el-form label-position="top">
+          <div class="grid-2">
+            <el-form-item label="文件类型">
+              <el-select v-model="createForm.file_type" style="width:100%;">
+                <el-option label="清关文件" value="customs"></el-option>
+                <el-option label="派送文件" value="delivery"></el-option>
+              </el-select>
+            </el-form-item>
+            <el-form-item label="唯一编码（必填）">
+              <el-input v-model="createForm.unique_code" placeholder="例如 UC001"></el-input>
+            </el-form-item>
+          </div>
+
+          <div v-if="createForm.file_type==='customs'" class="grid-2">
+            <el-form-item label="航空号（必填）">
+              <el-input v-model="createForm.flight_no" placeholder="例如 NH123"></el-input>
+            </el-form-item>
+            <el-form-item label="报关日期（必填）">
+              <el-date-picker v-model="createForm.declare_date" type="date" value-format="YYYY-MM-DD" style="width:100%;"></el-date-picker>
+            </el-form-item>
+          </div>
+
+          <el-form-item label="上传文件（仅支持 .xlsx，且一次仅 1 个文件）">
+            <el-upload
+              drag
+              :auto-upload="false"
+              :limit="1"
+              accept=".xlsx"
+              :on-change="(file)=>handleFileChange(file)"
+            >
+              <i class="el-icon-upload"></i>
+              <div class="el-upload__text">拖拽文件到此处，或 <em>点击选择</em></div>
+              <template #tip>
+                <div class="el-upload__tip">原型：仅选择文件，不会真实上传</div>
+              </template>
+            </el-upload>
+          </el-form-item>
+
+          <el-alert type="info" :closable="false"
+            title="处理逻辑提示"
+            description="系统将按：模板映射(template_mappings) → 字段映射(MAP) → 字段处理(PROCESS：RULE_FIX/CALC/AI) → 样式(ExcelConfig) 生成最终文件。">
+          </el-alert>
+        </el-form>
+
+        <template #footer>
+          <el-button @click="createDialog=false">取消</el-button>
+          <el-button type="primary" @click="submitCreate">创建任务</el-button>
+        </template>
+      </el-dialog>
+
+      <!-- Import Dialog -->
+      <el-dialog v-model="importDialog" title="导入规则配置（Excel 模板）" width="720px">
+        <el-upload
+          drag
+          :auto-upload="false"
+          :limit="1"
+          accept=".xlsx"
+          :on-change="(file)=>onImportChange(file)"
+        >
+          <div class="el-upload__text">拖拽导入模板到此处，或 <em>点击选择</em></div>
+        </el-upload>
+
+        <div class="footer-note">
+          原型：导入将写入 rule_tables / rule_items / template_mappings / ai_field_capabilities（真实实现需后端校验）。
+        </div>
+
+        <template #footer>
+          <el-button @click="importDialog=false">取消</el-button>
+          <el-button type="primary" @click="doImport">开始导入</el-button>
+        </template>
+      </el-dialog>
+    </div>
+  </div>
+  `
+}).use(ElementPlus).mount("#app");
+</script>
+</body>
+</html>
