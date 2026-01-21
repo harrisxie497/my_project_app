@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: japan_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/storage:/app/storage
+    environment:
+      - DATABASE_URL=sqlite:///./app.db
+      - SECRET_KEY=your-secret-key-change-me-in-production
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+    restart: unless-stopped
