@@ -1,0 +1,51 @@
+
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>API全面测试报告</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { background: #f0f0f0; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+            .summary { margin: 20px 0; }
+            .status { font-weight: bold; }
+            .passed { color: green; }
+            .failed { color: red; }
+            .error-list { margin-top: 20px; }
+            .error-item { background: #ffebee; padding: 10px; margin: 5px 0; border-radius: 3px; }
+            .section { margin: 30px 0; }
+            .section-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #333; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>API全面测试报告</h1>
+            <p>测试时间: 2026-01-22T09:51:32.830855</p>
+            <p>测试目标: http://localhost:8000/api/v1</p>
+            <p>测试用户: admin</p>
+        </div>
+        
+        <div class="summary">
+            <h2>测试结果摘要</h2>
+            <p>总测试数: <span class="status">43</span></p>
+            <p>通过数: <span class="status passed">43</span></p>
+            <p>失败数: <span class="status failed">0</span></p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">错误详情</div>
+            <div class="error-list">
+                <p>没有错误</p>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">测试覆盖率</div>
+            <p>已测试API数量: 43</p>
+            <p>设计文档API数量: 75</p>
+            <p>覆盖率: 57.3%</p>
+        </div>
+    </body>
+    </html>
+    

@@ -1,0 +1,12 @@
+{
+  "test_date": "2026-01-22T09:51:32.830855",
+  "base_url": "http://localhost:8000/api/v1",
+  "test_user": "admin",
+  "results": {
+    "total": 43,
+    "passed": 43,
+    "failed": 0,
+    "errors": []
+  },
+  "errors": []
+}

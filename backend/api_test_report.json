@@ -1,0 +1,18 @@
+{
+  "test_date": "2026-01-22T00:04:55.972126",
+  "base_url": "http://localhost:8000/api/v1",
+  "test_user": "admin",
+  "results": {
+    "total": 17,
+    "passed": 15,
+    "failed": 2,
+    "errors": [
+      "✗ 规则导入接口（文件上传）: FAILED - 预期状态码400，实际得到200",
+      "✗ 获取当前Excel配置（管理员）: FAILED - Status code 404 != 200"
+    ]
+  },
+  "errors": [
+    "✗ 规则导入接口（文件上传）: FAILED - 预期状态码400，实际得到200",
+    "✗ 获取当前Excel配置（管理员）: FAILED - Status code 404 != 200"
+  ]
+}

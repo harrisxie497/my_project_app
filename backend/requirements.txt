@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+sqlalchemy
+alembic
+python-multipart
+pymysql
+python-jose[cryptography]
+passlib[bcrypt]
+openpyxl
