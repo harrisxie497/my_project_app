@@ -51,6 +51,15 @@
         </div>
 
         <div class="grid-2">
+          <el-form-item label="源模板编码" prop="source_template_code">
+            <el-input v-model="addForm.source_template_code" placeholder="例如：SOURCE_V1"></el-input>
+          </el-form-item>
+          <el-form-item label="目标模板编码" prop="target_template_code">
+            <el-input v-model="addForm.target_template_code" placeholder="例如：TARGET_V1"></el-input>
+          </el-form-item>
+        </div>
+
+        <div class="grid-2">
           <el-form-item label="Sheet 匹配模式" prop="sheet_match_mode">
             <el-select v-model="addForm.sheet_match_mode" style="width:100%;">
               <el-option label="按名称匹配" value="name"></el-option>
@@ -64,7 +73,7 @@
 
         <el-form-item label="列绑定 JSON" prop="column_bindings_json">
           <el-input
-            v-model="addForm.column_bindings_json"
+            v-model="columnBindingsString"
             type="textarea"
             :rows="6"
             placeholder='例如：{"bindings":[{"source_key":"order_no","match":{"by":"header","candidates":["お客様管理番号","订单号"]},"fallback":{"by":"col","value":"A"},"required":true}]}'
@@ -109,12 +118,14 @@ const fetchTemplateMappings = async () => {
 // 新增映射弹窗相关
 const addDialogVisible = ref(false)
 const addFormRef = ref(null)
+const columnBindingsString = ref('')
 const addForm = reactive({
   mapping_code: '',
   file_type: 'customs',
+  source_template_code: '',
+  target_template_code: '',
   sheet_match_mode: 'name',
   sheet_match_value: '',
-  column_bindings_json: '',
   enabled: true
 })
 
@@ -124,6 +135,12 @@ const addFormRules = reactive({
   ],
   file_type: [
     { required: true, message: '请选择文件类型', trigger: 'change' }
+  ],
+  source_template_code: [
+    { required: true, message: '请输入源模板编码', trigger: 'blur' }
+  ],
+  target_template_code: [
+    { required: true, message: '请输入目标模板编码', trigger: 'blur' }
   ],
   sheet_match_mode: [
     { required: true, message: '请选择Sheet匹配模式', trigger: 'change' }
@@ -136,7 +153,24 @@ const addFormRules = reactive({
 const handleAdd = async () => {
   try {
     await addFormRef.value.validate()
-    const response = await templateMappingService.addTemplateMapping(addForm);
+    
+    // 创建一个新的请求对象，避免修改原始表单数据
+    const requestData = { ...addForm };
+    
+    // 转换columnBindingsString为JSON对象
+    if (columnBindingsString.value.trim()) {
+      try {
+        requestData.column_bindings_json = JSON.parse(columnBindingsString.value);
+      } catch (jsonError) {
+        ElMessage.error('column_bindings_json格式错误，请输入有效的JSON字符串');
+        return;
+      }
+    } else {
+      // 如果JSON字符串为空，使用空对象
+      requestData.column_bindings_json = {};
+    }
+    
+    const response = await templateMappingService.addTemplateMapping(requestData);
     const newMapping = response.data;
     templateMappings.value.push(newMapping);
     addDialogVisible.value = false
@@ -145,11 +179,14 @@ const handleAdd = async () => {
     Object.assign(addForm, {
       mapping_code: '',
       file_type: 'customs',
+      source_template_code: '',
+      target_template_code: '',
       sheet_match_mode: 'name',
       sheet_match_value: '',
-      column_bindings_json: '',
       enabled: true
-    })
+    });
+    // 重置列绑定字符串
+    columnBindingsString.value = '';
   } catch (error) {
     ElMessage.error('新增映射失败');
     console.error('新增映射失败:', error);

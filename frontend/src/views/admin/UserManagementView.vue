@@ -20,7 +20,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="enabled" label="enabled" width="140">
-          <template #default="{row}"><el-switch v-model="row.enabled"></el-switch></template>
+          <template #default="{row}"><el-switch :model-value="row.enabled" @change="toggleUserEnabled(row, $event)"></el-switch></template>
         </el-table-column>
         <el-table-column label="操作" width="220">
           <template #default="{row}">
@@ -107,13 +107,11 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import userService from '../../services/userService'
 
-const users = ref([
-  { id: "u_123", username: "admin", display_name: "Admin", role: "admin", enabled: true },
-  { id: "u_200", username: "op1", display_name: "操作员1", role: "operator", enabled: true },
-]);
+const users = ref([]);
 
 // 新增用户弹窗相关
 const addDialogVisible = ref(false);
@@ -143,34 +141,14 @@ const addFormRules = reactive({
   ]
 });
 
-const openAddUserDialog = () => {
-  addDialogVisible.value = true;
-};
-
-const handleAddUser = () => {
-  addFormRef.value.validate((valid) => {
-    if (valid) {
-      // 模拟提交
-      const newUser = {
-        id: `u_${Date.now()}`,
-        ...addForm
-      };
-      users.value.push(newUser);
-      addDialogVisible.value = false;
-      // 重置表单
-      addFormRef.value.resetFields();
-      ElMessage.success('用户创建成功');
-    }
-  });
-};
-
 // 重置密码弹窗相关
 const resetDialogVisible = ref(false);
 const resetFormRef = ref(null);
 const resetForm = reactive({
   username: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  userId: ''
 });
 
 const resetFormRules = reactive({
@@ -193,29 +171,113 @@ const resetFormRules = reactive({
   ]
 });
 
+// 加载用户列表
+const loadUsers = async () => {
+  try {
+    const response = await userService.getUsers();
+    users.value = response.data.items;
+  } catch (error) {
+    console.error('获取用户列表错误:', error);
+    ElMessage.error('获取用户列表失败');
+  }
+};
+
+// 打开新增用户弹窗
+const openAddUserDialog = () => {
+  addDialogVisible.value = true;
+};
+
+// 新增用户
+const handleAddUser = async () => {
+  addFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const response = await userService.createUser(addForm);
+        addDialogVisible.value = false;
+        // 重置表单
+        addFormRef.value.resetFields();
+        ElMessage.success('用户创建成功');
+        // 重新加载用户列表
+        await loadUsers();
+      } catch (error) {
+        console.error('创建用户错误:', error);
+        ElMessage.error('用户创建失败');
+      }
+    }
+  });
+};
+
+// 打开重置密码弹窗
 const openResetPasswordDialog = (row) => {
   resetForm.username = row.username;
+  resetForm.userId = row.id;
   resetForm.password = '';
   resetForm.confirmPassword = '';
   resetDialogVisible.value = true;
 };
 
-const handleResetPassword = () => {
-  resetFormRef.value.validate((valid) => {
+// 重置密码
+const handleResetPassword = async () => {
+  resetFormRef.value.validate(async (valid) => {
     if (valid) {
-      // 模拟重置密码
-      resetDialogVisible.value = false;
-      ElMessage.success('密码重置成功');
+      try {
+        const response = await userService.adminResetPassword(resetForm.userId, resetForm.password);
+        resetDialogVisible.value = false;
+        ElMessage.success('密码重置成功');
+      } catch (error) {
+        console.error('重置密码错误:', error);
+        ElMessage.error('密码重置失败');
+      }
     }
   });
 };
 
 // 删除用户
-const deleteUser = (row) => {
-  // 模拟删除
-  users.value = users.value.filter(user => user.id !== row.id);
-  ElMessage.success('用户删除成功');
+const deleteUser = async (row) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该用户吗？', '删除确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    });
+    
+    const response = await userService.deleteUser(row.id);
+    ElMessage.success('用户删除成功');
+    // 重新加载用户列表
+    await loadUsers();
+  } catch (error) {
+    if (error === 'cancel') {
+      // 用户取消删除
+      return;
+    }
+    console.error('删除用户错误:', error);
+    ElMessage.error('用户删除失败');
+  }
 };
+
+// 切换用户启用状态
+const toggleUserEnabled = async (row, newEnabled) => {
+  try {
+    // 使用$event参数获取新的状态，而不是依赖row.enabled
+    const response = await (newEnabled ? userService.enableUser(row.id) : userService.disableUser(row.id));
+    
+    // 直接使用response数据，因为axios拦截器已经处理了response.data
+    ElMessage.success(newEnabled ? '用户启用成功' : '用户禁用成功');
+    // 重新加载用户列表
+    await loadUsers();
+  } catch (error) {
+    console.error('切换用户状态错误:', error);
+    // 恢复原状态，因为我们使用了:model-value而不是v-model
+    // 所以需要手动更新UI
+    await loadUsers();
+    ElMessage.error(newEnabled ? '用户启用失败' : '用户禁用失败');
+  }
+};
+
+// 组件挂载时加载用户列表
+onMounted(async () => {
+  await loadUsers();
+});
 </script>
 
 <style scoped>

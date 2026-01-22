@@ -103,52 +103,93 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import taskService from '../services/taskService'
 
 const route = useRoute()
 const taskId = route.params.id
 
-// Mock data
-const tasks = ref([
-  { id: "t_001", file_type: "customs", unique_code: "UC001", flight_no: "NH123", declare_date: "2026-01-20", status: "success", created_at: "2026-01-20T01:02:03Z" },
-  { id: "t_002", file_type: "delivery", unique_code: "UC002", flight_no: "", declare_date: "", status: "failed", created_at: "2026-01-20T02:10:11Z" },
-  { id: "t_003", file_type: "customs", unique_code: "UC003", flight_no: "JL777", declare_date: "2026-01-19", status: "processing", created_at: "2026-01-20T03:33:09Z" },
-]);
-
-const taskDetail = computed(() => {
-  const t = tasks.value.find(x => x.id === taskId) || tasks.value[0];
-  return {
-    ...t,
-    progress_stage: t.status === "processing" ? "fill" : (t.status === "success" ? "done" : "failed"),
-    stats: t.status === "success" ? {
-      total_rows: 120, fixed_count: 86, filled_count: 42, fx_changed_rows: 120, llm_filled_count: 15
-    } : null,
-    error: t.status === "failed" ? {
-      code: "RULE_VALIDATION_FAILED",
-      message: "字段A不符合12位数字要求",
-      detail: { sheet: "Sheet1", row: 23, col: "A" }
-    } : null
-  };
+// 任务详情数据
+const taskDetail = ref({
+  id: '',
+  file_type: 'customs',
+  unique_code: '',
+  flight_no: '',
+  declare_date: '',
+  status: 'queued',
+  created_at: '',
+  progress_stage: 'done',
+  stats: null,
+  error: null
 });
 
-const runTask = () => {
-  const idx = tasks.value.findIndex(t => t.id === taskId);
-  if (idx >= 0) {
-    tasks.value[idx].status = "processing";
-    ElMessage.info("开始处理");
-    // 模拟处理完成
-    setTimeout(() => {
-      tasks.value[idx].status = "success";
-      ElMessage.success("处理完成");
-    }, 800);
+// 加载任务详情
+const loadTaskDetail = async () => {
+  try {
+    // 获取任务详情，axios拦截器已经处理了response.data
+    const response = await taskService.getTaskDetail(taskId);
+    const data = response.data;
+    taskDetail.value = data;
+    // 添加计算字段
+    taskDetail.value.progress_stage = data.status === "processing" ? "fill" : (data.status === "success" ? "done" : "failed");
+  } catch (error) {
+    console.error('获取任务详情错误:', error);
+    ElMessage.error('获取任务详情失败');
   }
 };
 
-const downloadFile = (kind) => {
-  ElMessage.success(`下载 ${kind}`);
+// 运行任务
+const runTask = async () => {
+  try {
+    // 运行任务，axios拦截器已经处理了response.data
+    await taskService.runTask(taskId);
+    ElMessage.info("开始处理");
+    // 重新加载任务详情
+    await loadTaskDetail();
+    // 定期轮询任务状态
+    const pollInterval = setInterval(async () => {
+      await loadTaskDetail();
+      if (taskDetail.value.status !== 'processing') {
+        clearInterval(pollInterval);
+        if (taskDetail.value.status === 'success') {
+          ElMessage.success("处理完成");
+        } else if (taskDetail.value.status === 'failed') {
+          ElMessage.error("处理失败");
+        }
+      }
+    }, 1000);
+  } catch (error) {
+    console.error('运行任务错误:', error);
+    ElMessage.error('运行任务失败');
+  }
 };
+
+// 下载任务文件
+const downloadFile = async (kind) => {
+  try {
+    const response = await taskService.downloadTaskFile(taskId, kind);
+    // 创建下载链接，blob数据在response.data中
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${taskId}_${kind}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    ElMessage.success(`下载 ${kind} 文件成功`);
+  } catch (error) {
+    console.error('下载文件错误:', error);
+    ElMessage.error(`下载 ${kind} 文件失败`);
+  }
+};
+
+// 组件挂载时加载任务详情
+onMounted(async () => {
+  await loadTaskDetail();
+});
 </script>
 
 <style scoped>

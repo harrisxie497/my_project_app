@@ -7,11 +7,16 @@
       </div>
     </div>
     <div class="card-bd">
-      <el-table :data="logs" style="width:100%;">
-        <el-table-column prop="created_at" label="time" width="200"></el-table-column>
-        <el-table-column prop="user" label="user" width="120"></el-table-column>
+      <el-table :data="logs" style="width:100%;" :loading="loading">
+        <el-table-column prop="created_at" label="time" width="200">
+          <template #default="{row}">
+            <span>{{ formatDateTime(row.created_at) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="user_id" label="user" width="120"></el-table-column>
         <el-table-column prop="action" label="action" width="180"></el-table-column>
-        <el-table-column prop="entity" label="entity" width="160"></el-table-column>
+        <el-table-column prop="entity_type" label="entity type" width="120"></el-table-column>
+        <el-table-column prop="entity_id" label="entity id" width="160"></el-table-column>
         <el-table-column prop="success" label="success" width="120">
           <template #default="{row}">
             <el-tag v-if="row.success" type="success">true</el-tag>
@@ -28,13 +33,46 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import operationLogService from '../../services/operationLogService'
 
-const logs = ref([
-  { id: "log_1", created_at: "2026-01-20T01:02:03Z", user: "admin", action: "TASK_CREATED", entity: "task:t_001", success: true, message: "created" },
-  { id: "log_2", created_at: "2026-01-20T01:02:20Z", user: "admin", action: "TASK_SUCCEEDED", entity: "task:t_001", success: true, message: "success" },
-  { id: "log_3", created_at: "2026-01-20T02:10:11Z", user: "op1", action: "TASK_FAILED", entity: "task:t_002", success: false, message: "RULE_VALIDATION_FAILED" },
-]);
+const logs = ref([])
+const loading = ref(false)
+
+// 格式化日期时间
+const formatDateTime = (dateString) => {
+  const date = new Date(dateString)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
+
+// 加载操作日志
+const loadLogs = async () => {
+  loading.value = true
+  try {
+    // 调用API获取操作日志
+    const response = await operationLogService.adminGetOperationLogs()
+    logs.value = response.data.items
+  } catch (error) {
+    console.error('获取操作日志失败:', error)
+    ElMessage.error('获取操作日志失败')
+    logs.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+// 组件挂载时加载日志
+onMounted(() => {
+  loadLogs()
+})
 </script>
 
 <style scoped>

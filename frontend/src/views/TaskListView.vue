@@ -85,6 +85,8 @@
             :limit="1"
             accept=".xlsx"
             :on-change="handleFileChange"
+            :on-remove="handleRemove"
+            :file-list="fileList"
           >
             <i class="el-icon-upload"></i>
             <div class="el-upload__text">拖拽文件到此处，或 <em>点击选择</em></div>
@@ -128,8 +130,9 @@ const filters = reactive({
 const fetchTasks = async () => {
   loading.value = true;
   try {
+    // 获取任务列表，axios拦截器已经处理了response.data
     const response = await taskService.getTasks(filters);
-    tasks.value = response.data.list || [];
+    tasks.value = response.data?.items || [];
   } catch (error) {
     ElMessage.error('获取任务列表失败');
     console.error('获取任务列表失败:', error);
@@ -154,21 +157,74 @@ const createForm = reactive({
   file_type: "customs",
   unique_code: "",
   flight_no: "",
-  declare_date: "",
-  file: null
+  declare_date: ""
 });
 
-const handleFileChange = (file) => { createForm.file = file; };
+// 文件列表，用于Upload组件
+const fileList = ref([]);
+
+// 处理文件选择变化
+const handleFileChange = (file, files) => {
+  // 更新文件列表
+  fileList.value = files;
+};
+
+// 移除文件
+const handleRemove = (file, files) => {
+  fileList.value = files;
+};
 
 // 创建任务
 const submitCreate = async () => {
   try {
-    const response = await taskService.createTask(createForm);
+    // 检查是否选择了文件
+    if (!fileList.value || fileList.value.length === 0) {
+      ElMessage.error('请选择要上传的文件');
+      return;
+    }
+    
+    // 构造FormData对象，用于multipart/form-data格式的请求
+    const formData = new FormData();
+    
+    // 添加表单字段
+    formData.append('file_type', createForm.file_type);
+    formData.append('unique_code', createForm.unique_code);
+    
+    // 仅当字段有值时才添加
+    if (createForm.flight_no) {
+      formData.append('flight_no', createForm.flight_no);
+    }
+    if (createForm.declare_date) {
+      formData.append('declare_date', createForm.declare_date);
+    }
+    
+    // 从fileList中获取文件，Element Plus的Upload组件中，文件对象存储在raw属性中
+    const file = fileList.value[0].raw;
+    if (file) {
+      formData.append('file', file);
+    } else {
+      ElMessage.error('文件格式错误，请重新选择');
+      return;
+    }
+    
+    // 发送请求
+    const response = await taskService.createTask(formData);
     const newTask = response.data;
-    tasks.value.unshift(newTask);
+    
+    // 刷新任务列表
+    await fetchTasks();
+    
+    // 关闭对话框
     createDialog.value = false;
-    router.push(`/task-detail/${newTask.id}`);
+    
+    // 跳转到任务详情页
+    router.push(`/task-detail/${newTask.task_id}`);
+    
+    // 显示成功消息
     ElMessage.success('任务创建成功');
+    
+    // 清空文件列表
+    fileList.value = [];
   } catch (error) {
     ElMessage.error('任务创建失败');
     console.error('任务创建失败:', error);

@@ -13,9 +13,6 @@
           <h1>一站式上传 → 修复/补齐 → 下载</h1>
           <p>支持清关文件 / 派送文件 · 规则驱动 · AI 字段补齐 · 输出对比与统计</p>
         </div>
-        <div style="margin-top: 18px;" class="danger-box">
-          提示：该页面无真实后端，仅用于确认页面结构与交互流程。
-        </div>
       </div>
       <div class="login-right">
         <div class="section-title">登录</div>
@@ -26,7 +23,7 @@
           <el-form-item label="密码">
             <el-input v-model="loginForm.password" placeholder="请输入密码" show-password></el-input>
           </el-form-item>
-          <el-button type="primary" style="width: 100%;" @click="doLogin">登录</el-button>
+          <el-button type="primary" style="width: 100%;" @click="doLogin" :loading="loading">登录</el-button>
           <div class="footer-note">登录后可访问任务中心；管理员可进入配置中心。</div>
         </el-form>
       </div>
@@ -35,36 +32,74 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import authService from '../services/authService'
 
 const router = useRouter()
+const loading = ref(false)
 
-const loginForm = reactive({ username: "admin", password: "123456" })
+const loginForm = reactive({ username: "admin", password: "admin123" })
 
-const doLogin = () => {
+const doLogin = async () => {
   if (!loginForm.username || !loginForm.password) {
     ElMessage.error("请输入账号密码")
     return
   }
   
-  // 模拟登录成功，存储用户信息到本地存储
-  const user = {
-    id: "u_123",
-    username: loginForm.username,
-    display_name: loginForm.username === "admin" ? "Admin" : "Operator",
-    role: loginForm.username === "admin" ? "admin" : "operator"
+  loading.value = true
+  
+  try {
+    // 调用真实登录API
+    console.log("开始登录，账号:", loginForm.username)
+    const response = await authService.login(loginForm.username, loginForm.password)
+    console.log("登录响应:", response)
+    
+    if (response && response.data) {
+      // 保存认证信息到本地存储
+      authService.saveAuth({
+        loggedIn: true,
+        token: response.data.access_token,
+        user: response.data.user
+      })
+      
+      ElMessage.success("登录成功")
+      router.push('/tasks')
+    } else {
+      console.error("登录响应数据格式错误:", response)
+      ElMessage.error("登录失败，响应格式错误")
+    }
+  } catch (error) {
+    console.error("登录错误:", error)
+    let errorMessage = "登录失败，请稍后重试"
+    
+    // 解析错误响应，获取详细错误信息
+    if (error.response) {
+      console.error("错误详情:", error.response)
+      if (error.response.data && error.response.data.detail) {
+        // 根据后端返回的错误信息显示不同的提示
+        const detail = error.response.data.detail
+        if (detail === "User does not exist") {
+          errorMessage = "用户不存在"
+        } else if (detail === "User account is disabled") {
+          errorMessage = "用户账号已被禁用"
+        } else if (detail === "Incorrect password") {
+          errorMessage = "密码错误"
+        } else {
+          errorMessage = detail
+        }
+      } else if (error.response.status === 401) {
+        errorMessage = "用户名或密码错误"
+      }
+    } else if (error.message) {
+      errorMessage = error.message
+    }
+    
+    ElMessage.error(errorMessage)
+  } finally {
+    loading.value = false
   }
-  
-  localStorage.setItem('auth', JSON.stringify({
-    loggedIn: true,
-    token: "mock-jwt",
-    user
-  }))
-  
-  ElMessage.success("登录成功")
-  router.push('/tasks')
 }
 </script>
 
