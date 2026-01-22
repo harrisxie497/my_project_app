@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # 后端服务
   backend:
@@ -12,12 +10,11 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-      - ./backend/app.db:/app/app.db  # 挂载数据库文件
       - ./backend/storage:/app/storage  # 挂载文件存储目录
     environment:
       - API_V1_STR=/api/v1
-      - SECRET_KEY=your-secret-key-change-me-in-production
-      - DATABASE_URL=sqlite:///./app.db
+      - SECRET_KEY=wwRfvTJQMOGRHELw5QmmSULPwVg5zBEeR9CbyfMTVeY
+      - DATABASE_URL=mysql+pymysql://app:app123456@172.18.207.224:3306/demo?charset=utf8mb4
     networks:
       - japan-customs-network
 

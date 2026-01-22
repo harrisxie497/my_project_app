@@ -9,10 +9,10 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     
     # 数据库配置
-    DATABASE_URL: str = "sqlite:///./app.db"
+    DATABASE_URL: str = "mysql+pymysql://app:app123456@172.18.207.224:3306/demo?charset=utf8mb4"
     
     # JWT配置
-    SECRET_KEY: str = "your-secret-key-change-me-in-production"
+    SECRET_KEY: str = "wwRfvTJQMOGRHELw5QmmSULPwVg5zBEeR9CbyfMTVeY"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     

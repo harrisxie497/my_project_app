@@ -1,6 +1,6 @@
 # 后端容器化配置
 # 使用官方 Python 3.10 镜像作为基础
-FROM python:3.10-slim
+FROM python:3.11
 
 # 设置工作目录
 WORKDIR /app
