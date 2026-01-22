@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # 后端服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: japan-customs-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./backend/app.db:/app/app.db  # 挂载数据库文件
+      - ./backend/storage:/app/storage  # 挂载文件存储目录
+    environment:
+      - API_V1_STR=/api/v1
+      - SECRET_KEY=your-secret-key-change-me-in-production
+      - DATABASE_URL=sqlite:///./app.db
+    networks:
+      - japan-customs-network
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: japan-customs-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - japan-customs-network
+
+# 网络配置
+networks:
+  japan-customs-network:
+    driver: bridge
+    name: japan-customs-network
