@@ -306,75 +306,128 @@ AI 相关能力 **不写死在规则里**，统一配置：
 | created_at / updated_at          |
 
 ---
+| 字段                 | 含义                             |
+| ------------------ | ------------------------------ |
+| template_code      | 模板唯一标识，用于规则绑定                  |
+| file_type          | 文件业务类型（delivery / customs）     |
+| source_sheet       | 源 Excel 中需要处理的 Sheet           |
+| target_sheet       | 生成 Excel 的 Sheet               |
+| header_row         | 表头所在行                          |
+| data_start_row     | 数据起始行                          |
+| match_strategy     | 列匹配策略（header_first / col_only） |
+| target_schema_json | 目标文件列结构定义                      |
+| enabled            | 是否启用                           |
+| remark             | 备注说明                           |
 
-## 9.4 rule_tables
+二、rule_tables（规则集定义）
+2.1 DB 表结构
+CREATE TABLE rule_tables (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  rule_table_code VARCHAR(100) NOT NULL UNIQUE,
+  rule_table_name VARCHAR(255) NOT NULL,
+  file_type VARCHAR(50) NOT NULL,
+  stage VARCHAR(20) NOT NULL,
+  enabled TINYINT DEFAULT 1,
+  description VARCHAR(255),
+  created_at DATETIME,
+  updated_at DATETIME
+);
 
-| 字段                           |
-| ---------------------------- |
-| id                           |
-| code (unique)                |
-| file_type (customs/delivery) |
-| rule_stage (MAP/PROCESS)     |
-| enabled                      |
-| description                  |
-| created_at / updated_at      |
 
----
+| 字段              | 含义            |
+| --------------- | ------------- |
+| rule_table_code | 规则集唯一编码       |
+| rule_table_name | 规则集名称         |
+| file_type       | 文件类型          |
+| stage           | MAP / PROCESS |
+| enabled         | 是否启用          |
+| description     | 规则集说明         |
 
-## 9.5 rule_items
+三、rule_items（⭐ 核心规则配置）
 
-| 字段                                |
-| --------------------------------- |
-| id                                |
-| rule_table_id                     |
-| enabled                           |
-| order_no                          |
-| target_column                     |
-| target_field_name                 |
-| map_op / source_column / derive_* |
-| field_type                        |
-| process_depends_on                |
-| process_rules_json                |
-| executor                          |
-| on_fail                           |
-| note                              |
-| created_at / updated_at           |
+这一张表同时承载 MAP 和 PROCESS
+用 rule_table_code + stage 区分
 
----
+3.1 DB 表结构（最终推荐）
+CREATE TABLE rule_items (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  rule_table_code VARCHAR(100) NOT NULL,
+  enabled TINYINT DEFAULT 1,
+  order_no INT NOT NULL,
 
-## 9.6 template_mappings
+  target_col CHAR(2) NOT NULL,
+  target_header VARCHAR(255),
 
-| 字段                      |
-| ----------------------- |
-| id                      |
-| mapping_code            |
-| file_type               |
-| source_template_code    |
-| target_template_code    |
-| sheet_match_mode        |
-| sheet_match_value       |
-| column_bindings_json    |
-| enabled                 |
-| created_at / updated_at |
+  -- MAP 阶段
+  map_op VARCHAR(50),
+  source_col CHAR(2),
+  source_header VARCHAR(255),
+  derive_type VARCHAR(50),
+  derive_rule JSON,
 
----
+  -- PROCESS 阶段
+  field_type VARCHAR(50),
+  executor_type VARCHAR(20),
+  depends_on VARCHAR(100),
+  proc_rules JSON,
+  on_fail VARCHAR(20),
 
-## 9.7 ai_field_capabilities
+  remark VARCHAR(255),
+  created_at DATETIME,
+  updated_at DATETIME
+);
 
-| 字段                      |
-| ----------------------- |
-| id                      |
-| file_type               |
-| target_column           |
-| capability_code         |
-| depends_on              |
-| prompt_template         |
-| output_constraints_json |
-| on_fail                 |
-| enabled                 |
-| created_at / updated_at |
+3.2 字段含义（非常重要）
+通用字段
+字段	含义
+rule_table_code	归属哪个规则集
+enabled	是否启用
+order_no	执行顺序
+target_col	目标 Excel 列字母
+target_header	目标表头
+MAP 相关字段（仅 MAP 规则用）
+字段	含义
+map_op	COPY / DERIVE
+source_col	源列字母
+source_header	源表头
+derive_type	CONST / INPUT_PARAM / EXPR
+derive_rule	派生规则（JSON）
+PROCESS 相关字段（仅 PROCESS 规则用）
+字段	含义
+field_type	COPY / FORMAT / DEFAULT / CALC / RULE_FIX / AI
+executor_type	program / ai
+depends_on	依赖的列（如 C,D）
+proc_rules	处理规则（JSON）
+on_fail	block / warn
 
----
+
+四、ai_field_capabilities（AI 字段能力配置）
+4.1 DB 表结构
+CREATE TABLE ai_field_capabilities (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  file_type VARCHAR(50) NOT NULL,
+  target_col CHAR(2) NOT NULL,
+  model VARCHAR(50),
+  prompt_template TEXT,
+  depends_on VARCHAR(100),
+  enabled TINYINT DEFAULT 1,
+  remark VARCHAR(255),
+  created_at DATETIME,
+  updated_at DATETIME
+);
+
+4.2 字段含义
+字段	含义
+file_type	文件类型
+target_col	目标列
+model	使用的模型
+prompt_template	Prompt 模板
+depends_on	依赖字段
+enabled	是否启用
+remark	说明
+
+
+
 
 ## 9.8 operation_logs
 

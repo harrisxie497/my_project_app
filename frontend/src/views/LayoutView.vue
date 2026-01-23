@@ -17,14 +17,31 @@
     </div>
 
     <div class="content">
-      <div class="sidebar">
-        <el-menu :default-active="activeRoute" @select="handleMenuSelect" style="border-right: none;">
+      <div class="sidebar" :class="{ 'collapsed': sidebarCollapsed }">
+        <div class="sidebar-header">
+          <el-button 
+            type="text" 
+            @click="toggleSidebar" 
+            style="padding: 8px; font-size: 16px; color: #6b7280;">
+            {{ sidebarCollapsed ? '>>' : '<<' }}
+          </el-button>
+        </div>
+        <el-menu 
+          :default-active="activeRoute" 
+          @select="handleMenuSelect" 
+          style="border-right: none;"
+          :collapse="sidebarCollapsed"
+        >
           <el-menu-item v-for="m in menuItems" :key="m.key" :index="m.key">
-            <span style="margin-right:8px;">{{ m.icon }}</span>
-            <span>{{ m.label }}</span>
+            <template #icon>
+              <span>{{ m.icon }}</span>
+            </template>
+            <template #title>
+              <span>{{ m.label }}</span>
+            </template>
           </el-menu-item>
         </el-menu>
-        <div class="footer-note">
+        <div class="footer-note" v-if="!sidebarCollapsed">
           侧边栏随角色变化。下载不做额外鉴权（仅登录）。
         </div>
       </div>
@@ -43,6 +60,14 @@ import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
+
+// 侧边栏折叠状态
+const sidebarCollapsed = ref(false)
+
+// 切换侧边栏折叠状态
+const toggleSidebar = () => {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
 
 const auth = ref({
   loggedIn: false,
@@ -121,7 +146,9 @@ onMounted(() => {
 .brand-badge { width: 28px; height: 28px; border-radius: 10px; background: #2f54eb; }
 .brand-title { font-weight: 700; }
 .content { flex: 1; display:flex; min-height: 0; }
-.sidebar { width: 240px; background:#fff; border-right:1px solid #eaecef; padding: 10px; }
+.sidebar { width: 240px; background:#fff; border-right:1px solid #eaecef; padding: 10px; transition: width 0.3s ease; }
+.sidebar.collapsed { width: 80px; }
+.sidebar-header { display: flex; justify-content: flex-end; margin-bottom: 10px; }
 .main { flex: 1; padding: 16px; overflow:auto; background: #f6f7fb; }
 .muted { color:#6b7280; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }

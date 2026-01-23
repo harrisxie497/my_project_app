@@ -11,46 +11,77 @@
     </div>
 
     <div class="card-bd">
-      <div class="grid-2" style="margin-bottom: 10px;">
-        <el-select v-model="filters.file_type" placeholder="文件类型（全部）" clearable>
-          <el-option label="清关文件" value="customs"></el-option>
-          <el-option label="派送文件" value="delivery"></el-option>
-        </el-select>
+        <div class="grid-2" style="margin-bottom: 10px;">
+          <el-select v-model="filters.file_type" placeholder="文件类型（全部）" clearable>
+            <el-option label="清关文件" value="customs"></el-option>
+            <el-option label="派送文件" value="delivery"></el-option>
+          </el-select>
 
-        <el-select v-model="filters.status" placeholder="状态（全部）" clearable>
-          <el-option label="queued" value="queued"></el-option>
-          <el-option label="processing" value="processing"></el-option>
-          <el-option label="success" value="success"></el-option>
-          <el-option label="failed" value="failed"></el-option>
-        </el-select>
+          <el-select v-model="filters.status" placeholder="状态（全部）" clearable>
+            <el-option label="待处理" value="queued"></el-option>
+            <el-option label="处理中" value="processing"></el-option>
+            <el-option label="成功" value="success"></el-option>
+            <el-option label="失败" value="failed"></el-option>
+          </el-select>
 
-        <el-input v-model="filters.unique_code" placeholder="唯一编码（模糊匹配）"></el-input>
-        <div></div>
-      </div>
+          <el-date-picker 
+            v-model="filters.arrival_date_range" 
+            type="daterange" 
+            range-separator="至" 
+            start-placeholder="到达日期开始" 
+            end-placeholder="到达日期结束" 
+            value-format="YYYY-MM-DD" 
+            style="width: 100%;"
+          ></el-date-picker>
 
-      <el-table :data="filteredTasks" style="width:100%;" @row-click="goTaskDetail">
-        <el-table-column prop="id" label="任务ID" width="120"></el-table-column>
-        <el-table-column prop="file_type" label="类型" width="120">
-          <template #default="{row}">
-            <span class="tag-pill">{{ row.file_type==='customs' ? '清关' : '派送' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="unique_code" label="唯一编码" width="140"></el-table-column>
-        <el-table-column prop="flight_no" label="航空号" width="120"></el-table-column>
-        <el-table-column prop="declare_date" label="报关日期" width="120"></el-table-column>
-        <el-table-column prop="status" label="状态" width="120">
-          <template #default="{row}">
-            <el-tag v-if="row.status==='success'" type="success">success</el-tag>
-            <el-tag v-else-if="row.status==='failed'" type="danger">failed</el-tag>
-            <el-tag v-else-if="row.status==='processing'" type="warning">processing</el-tag>
-            <el-tag v-else>queued</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="创建时间"></el-table-column>
-      </el-table>
+          <el-input v-model="filters.flight_no" placeholder="FLIGHT NO"></el-input>
+        </div>
+        <div class="grid-2" style="margin-bottom: 10px;">
+          <el-input v-model="filters.created_by" placeholder="负责人（创建人）"></el-input>
+        </div>
+
+        <el-table :data="filteredTasks" style="width:100%;" stripe>
+          <el-table-column prop="file_type" label="文件类型" width="100">
+            <template #default="{row}">
+              <span class="tag-pill">{{ row.file_type==='customs' ? '清关' : '派送' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="flight_no" label="FLIGHT NO" width="100"></el-table-column>
+          <el-table-column prop="declare_date" label="ARRIVAL DATE" width="120"></el-table-column>
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{row}">
+              <el-tag v-if="row.status==='success'" type="success">成功</el-tag>
+              <el-tag v-else-if="row.status==='failed'" type="danger">失败</el-tag>
+              <el-tag v-else-if="row.status==='processing'" type="warning">处理中</el-tag>
+              <el-tag v-else>待处理</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="created_by_user_name" label="创建人" width="120"></el-table-column>
+          <el-table-column label="操作" width="200" fixed="right">
+            <template #default="{row}">
+              <el-button 
+                type="primary" 
+                size="small" 
+                @click="goTaskDetail(row)" 
+                :icon="View"
+                style="margin-right: 8px;">
+                详情
+              </el-button>
+              <el-button 
+                type="primary" 
+                size="small" 
+                @click.stop="downloadResult(row.id)" 
+                :disabled="row.status !== 'success'"
+                :icon="Download"
+              >
+                下载结果
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
       <div class="footer-note">
-        点击任意行进入任务详情。
+        点击详情按钮进入任务详情页。
       </div>
     </div>
 
@@ -64,21 +95,29 @@
               <el-option label="派送文件" value="delivery"></el-option>
             </el-select>
           </el-form-item>
-          <el-form-item label="唯一编码（必填）">
-            <el-input v-model="createForm.unique_code" placeholder="例如 UC001"></el-input>
-          </el-form-item>
         </div>
 
+        <!-- 清关文件字段 -->
         <div v-if="createForm.file_type==='customs'" class="grid-2">
-          <el-form-item label="航空号（必填）">
-            <el-input v-model="createForm.flight_no" placeholder="例如 NH123"></el-input>
+          <el-form-item label="MAWB NO" required>
+            <el-input v-model="createForm.mawb_no" placeholder="例如 16003270890"></el-input>
           </el-form-item>
-          <el-form-item label="报关日期（必填）">
-            <el-date-picker v-model="createForm.declare_date" type="date" value-format="YYYY-MM-DD" style="width:100%;"></el-date-picker>
+          <el-form-item label="FLIGHT NO" required>
+            <el-input v-model="createForm.flight_no" placeholder="例如 CX596"></el-input>
+          </el-form-item>
+          <el-form-item label="ARRIVAL DATE" required>
+            <el-date-picker v-model="createForm.arrival_date" type="date" value-format="YYYYMMDD" style="width:100%;"></el-date-picker>
           </el-form-item>
         </div>
 
-        <el-form-item label="上传文件（仅支持 .xlsx，且一次仅 1 个文件）">
+        <!-- 派送文件字段 -->
+        <div v-if="createForm.file_type==='delivery'" class="grid-2">
+          <el-form-item label="記事欄2" required>
+            <el-input v-model="createForm.note_field2" placeholder="例如 160-03270890"></el-input>
+          </el-form-item>
+        </div>
+
+        <el-form-item label="上传文件（仅支持 .xlsx，且一次仅 1 个文件）" required>
           <el-upload
             drag
             :auto-upload="false"
@@ -87,9 +126,15 @@
             :on-change="handleFileChange"
             :on-remove="handleRemove"
             :file-list="fileList"
+            :disabled="false"
           >
             <i class="el-icon-upload"></i>
             <div class="el-upload__text">拖拽文件到此处，或 <em>点击选择</em></div>
+            <template #tip>
+              <div class="el-upload__tip">
+                仅支持 .xlsx 文件，最大支持 10MB
+              </div>
+            </template>
           </el-upload>
         </el-form-item>
 
@@ -101,7 +146,7 @@
 
       <template #footer>
         <el-button @click="createDialog=false">取消</el-button>
-        <el-button type="primary" @click="submitCreate">创建任务</el-button>
+        <el-button type="primary" @click="submitCreate" :disabled="fileList.length === 0">创建任务</el-button>
       </template>
     </el-dialog>
   </div>
@@ -111,6 +156,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Download, View } from '@element-plus/icons-vue'
 import taskService from '../services/taskService'
 
 const router = useRouter()
@@ -123,15 +169,31 @@ const loading = ref(false);
 const filters = reactive({
   file_type: "",
   status: "",
-  unique_code: ""
+  arrival_date_range: null,
+  flight_no: "",
+  created_by: ""
 });
 
 // 获取任务列表
 const fetchTasks = async () => {
   loading.value = true;
   try {
+    // 构造查询参数
+    const queryParams = {
+      file_type: filters.file_type,
+      status: filters.status,
+      flight_no: filters.flight_no,
+      created_by: filters.created_by
+    };
+    
+    // 添加到达日期范围查询参数
+    if (filters.arrival_date_range && filters.arrival_date_range.length === 2) {
+      queryParams.declare_date_from = filters.arrival_date_range[0];
+      queryParams.declare_date_to = filters.arrival_date_range[1];
+    }
+    
     // 获取任务列表，axios拦截器已经处理了response.data
-    const response = await taskService.getTasks(filters);
+    const response = await taskService.getTasks(queryParams);
     tasks.value = response.data?.items || [];
   } catch (error) {
     ElMessage.error('获取任务列表失败');
@@ -146,18 +208,34 @@ const filteredTasks = computed(() => {
   return tasks.value.filter(t => {
     if (filters.file_type && t.file_type !== filters.file_type) return false;
     if (filters.status && t.status !== filters.status) return false;
-    if (filters.unique_code && !String(t.unique_code).includes(filters.unique_code)) return false;
+    if (filters.flight_no && !String(t.flight_no || '').includes(filters.flight_no)) return false;
+    if (filters.created_by && !String(t.created_by_user_name || '').includes(filters.created_by)) return false;
+    // 处理到达日期范围过滤
+    if (filters.arrival_date_range && filters.arrival_date_range.length === 2) {
+      const fromDate = new Date(filters.arrival_date_range[0]);
+      const toDate = new Date(filters.arrival_date_range[1]);
+      const taskDate = new Date(t.declare_date);
+      if (taskDate < fromDate || taskDate > toDate) return false;
+    }
     return true;
   });
 });
 
 // 创建任务对话框
 const createDialog = ref(false);
+
+// 获取今天的日期，格式化为YYYYMMDD
+const today = new Date();
+const todayFormatted = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+
 const createForm = reactive({
   file_type: "customs",
-  unique_code: "",
-  flight_no: "",
-  declare_date: ""
+  // 清关文件字段
+  mawb_no: "16003270890",
+  flight_no: "CX596",
+  arrival_date: todayFormatted,
+  // 派送文件字段
+  note_field2: "160-03270890"
 });
 
 // 文件列表，用于Upload组件
@@ -188,14 +266,21 @@ const submitCreate = async () => {
     
     // 添加表单字段
     formData.append('file_type', createForm.file_type);
-    formData.append('unique_code', createForm.unique_code);
     
-    // 仅当字段有值时才添加
-    if (createForm.flight_no) {
+    if (createForm.file_type === 'customs') {
+      // 清关文件：MAWB NO 作为唯一编码
+      formData.append('unique_code', createForm.mawb_no);
       formData.append('flight_no', createForm.flight_no);
-    }
-    if (createForm.declare_date) {
-      formData.append('declare_date', createForm.declare_date);
+      
+      // 转换 arrival_date 格式从 YYYYMMDD 到 YYYY-MM-DD
+      const arrivalDate = createForm.arrival_date;
+      if (arrivalDate) {
+        const formattedDate = `${arrivalDate.substring(0, 4)}-${arrivalDate.substring(4, 6)}-${arrivalDate.substring(6, 8)}`;
+        formData.append('declare_date', formattedDate);
+      }
+    } else if (createForm.file_type === 'delivery') {
+      // 派送文件：記事欄2 作为唯一编码
+      formData.append('unique_code', createForm.note_field2);
     }
     
     // 从fileList中获取文件，Element Plus的Upload组件中，文件对象存储在raw属性中
@@ -233,6 +318,17 @@ const submitCreate = async () => {
 
 const goTaskDetail = (row) => {
   router.push(`/task-detail/${row.id}`);
+};
+
+// 下载结果文件
+const downloadResult = async (taskId) => {
+  try {
+    await taskService.downloadTaskFile(taskId, 'result');
+    ElMessage.success('下载结果文件成功');
+  } catch (error) {
+    console.error('下载结果文件失败:', error);
+    ElMessage.error('下载结果文件失败');
+  }
 };
 
 // 初始化加载数据

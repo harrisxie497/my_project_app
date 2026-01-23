@@ -125,49 +125,40 @@ async def run_task(
     db.commit()
     
     try:
-        # 获取任务文件存储目录
-        task_dir = os.path.join(settings.TASKS_STORAGE_PATH, task_id)
-        
-        # 源文件路径
-        original_file_path = os.path.join(task_dir, "original.xlsx")
-        
-        # 复制原始文件为结果文件
-        result_file_path = os.path.join(task_dir, "result.xlsx")
-        import shutil
-        shutil.copy2(original_file_path, result_file_path)
-        
-        # 复制原始文件为差异文件
-        diff_file_path = os.path.join(task_dir, "diff.xlsx")
-        shutil.copy2(original_file_path, diff_file_path)
-        
-        # 更新任务的文件信息
-        task.files.update({
-            "result": {
-                "file_name": f"result_{task.id}.xlsx",
-                "download_url": f"{settings.API_V1_STR}/tasks/{task_id}/files/result"
-            },
-            "diff": {
-                "file_name": f"diff_{task.id}.xlsx",
-                "download_url": f"{settings.API_V1_STR}/tasks/{task_id}/files/diff"
-            }
-        })
-        
-        # 更新任务统计信息
-        task.stats = {
-            "total_rows": 0,
-            "fixed_count": 0,
-            "filled_count": 0,
-            "fx_changed_rows": 0,
-            "llm_filled_count": 0
-        }
-        
-        # 更新任务状态为成功
-        task.status = TaskStatus.SUCCESS
-        task.finished_at = datetime.utcnow()
-        task.progress_stage = "done"
-        task.progress_message = "Task completed successfully"
-        
-        db.commit()
+            # 获取任务文件存储目录
+            task_dir = os.path.join(settings.TASKS_STORAGE_PATH, task_id)
+            
+            # 导入文件处理器
+            from app.services.file_processor import FileProcessor
+            
+            # 创建文件处理器实例，并传递数据库会话
+            processor = FileProcessor(task_dir, task.file_type.value, db)
+            
+            # 执行文件处理
+            stats = processor.process()
+            
+            # 更新任务的文件信息
+            task.files.update({
+                "result": {
+                    "file_name": f"result_{task.id}.xlsx",
+                    "download_url": f"{settings.API_V1_STR}/tasks/{task_id}/files/result"
+                },
+                "diff": {
+                    "file_name": f"diff_{task.id}.xlsx",
+                    "download_url": f"{settings.API_V1_STR}/tasks/{task_id}/files/diff"
+                }
+            })
+            
+            # 更新任务统计信息
+            task.stats = stats
+            
+            # 更新任务状态为成功
+            task.status = TaskStatus.SUCCESS
+            task.finished_at = datetime.utcnow()
+            task.progress_stage = "done"
+            task.progress_message = "Task completed successfully"
+            
+            db.commit()
         
     except Exception as e:
         # 更新任务状态为失败

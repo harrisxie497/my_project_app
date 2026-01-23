@@ -1330,6 +1330,7 @@ Authorization: Bearer {token}
 | --- | --- | --- | --- |
 | v1.0 | 2026-01-21 | AI Assistant | 初始版本，包含所有表的CRUD API |
 | v1.1 | 2026-01-21 | AI Assistant | 合并APIV1.0版本，增加管理员API和详细设计 |
+| v1.2 | 2026-01-22 | AI Assistant | 合并两个API设计文档，统一文档结构 |
 
 ## 13. 附录
 
