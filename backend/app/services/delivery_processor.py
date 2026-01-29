@@ -163,52 +163,15 @@ class DeliveryProcessor(BaseProcessor):
             处理后的数据列表
         """
         logger.info("开始PROCESS阶段：字段处理")
-        processed_data = []
         
-        # 遍历数据行
-        for row in mapped_data:
-            processed_row = row.copy()
-            
-            # 1. 处理記事欄2字段
-            processed_row["記事欄2"] = "160-0327 9161"
-            
-            # 2. 处理依頼主字段
-            if not processed_row["依頼主"] or processed_row["依頼主"] == " ":
-                processed_row["依頼主"] = "DIDA"
-            
-            # 3. 处理時間帯指定字段
-            if processed_row["時間帯指定"] == 0:
-                processed_row["時間帯指定"] = None
-            
-            # 4. 处理お届け先住所字段
-            if processed_row["お届け先住所"]:
-                # 清理空格和特殊字符
-                processed_row["お届け先住所"] = processed_row["お届け先住所"].replace("  ", "")  # 替换多个空格为空
-                processed_row["お届け先住所"] = processed_row["お届け先住所"].replace(" ", "")  # 替换单个空格为空
-                processed_row["お届け先住所"] = processed_row["お届け先住所"].replace("　", "")  # 移除全角空格
-                processed_row["お届け先住所"] = processed_row["お届け先住所"].strip()  # 移除首尾空格
-            else:
-                processed_row["お届け先住所"] = ""
-            
-            # 5. 处理依頼主住所字段
-            if processed_row["依頼主住所"]:
-                # 清理空格和特殊字符
-                processed_row["依頼主住所"] = processed_row["依頼主住所"].replace("  ", "")  # 替换多个空格为空
-                processed_row["依頼主住所"] = processed_row["依頼主住所"].replace(" ", "")  # 替换单个空格为空
-                processed_row["依頼主住所"] = processed_row["依頼主住所"].replace("　", "")  # 移除全角空格
-                processed_row["依頼主住所"] = processed_row["依頼主住所"].strip()  # 移除首尾空格
-            else:
-                processed_row["依頼主住所"] = ""
-            
-            # 6. 处理依頼主電話字段
-            if processed_row["依頼主電話"] == " " or processed_row["依頼主電話"] == "None" or processed_row["依頼主電話"] is None:
-                processed_row["依頼主電話"] = "0471377848"
-            
-            # 7. 处理佐川問合せ番号HAWB字段，确保为字符串类型
+        # 调用父类的_process_fields方法，使用规则引擎处理字段
+        processed_data = super()._process_fields(mapped_data)
+        
+        # 额外的自定义处理
+        for processed_row in processed_data:
+            # 处理佐川問合せ番号HAWB字段，确保为字符串类型
             if processed_row["佐川問合せ番号HAWB"] is not None:
                 processed_row["佐川問合せ番号HAWB"] = str(processed_row["佐川問合せ番号HAWB"])
-            
-            processed_data.append(processed_row)
         
         logger.info(f"PROCESS阶段完成，处理了 {len(processed_data)} 行数据")
         return processed_data
@@ -290,8 +253,22 @@ class DeliveryProcessor(BaseProcessor):
             },
             {
                 "field_name": "時間帯指定",
-                "transformation_type": "custom",
-                "params": {},
+                "transformation_type": "conditional_expr",
+                "params": {
+                    "transformation_type": "conditional_expr",
+                    "target_col": "時間帯指定",
+                    "rules": [
+                        {
+                            "when": "C != '' && (D == 0 || D == '0')",
+                            "set": "00"
+                        },
+                        {
+                            "when": "C == '' && (D == 0 || D == '0')",
+                            "set": ""
+                        }
+                    ],
+                    "else": "KEEP"
+                },
                 "order_no": 3
             },
             {

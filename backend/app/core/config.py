@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     DEBUG: bool = True
     
-    # 数据库配置
-    DATABASE_URL: str = "mysql+pymysql://app:app123456@172.18.207.224:3306/demo?charset=utf8mb4"
+    # 数据库配置 - 使用SQLite数据库避免依赖外部MySQL服务器
+    DATABASE_URL: str = "sqlite:///./test.db"
     
     # JWT配置
     SECRET_KEY: str = "wwRfvTJQMOGRHELw5QmmSULPwVg5zBEeR9CbyfMTVeY"

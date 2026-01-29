@@ -197,6 +197,9 @@ class BaseProcessor:
                     # AI增强处理（示例实现）
                     if processed_row[field_name]:
                         processed_row[field_name] = self._ai_enhance(processed_row[field_name], params)
+                elif transformation_type == "conditional_expr":
+                    # 条件表达式转换
+                    processed_row[field_name] = self._process_conditional_expr(processed_row, params)
             
             processed_data.append(processed_row)
         
@@ -389,6 +392,159 @@ class BaseProcessor:
         # 这里可以调用实际的AI服务
         # 示例实现：简单返回原始值
         logger.info(f"AI增强处理：{value}")
+        return value
+    
+    def _process_conditional_expr(self, row: Dict[str, Any], params: Dict[str, Any]) -> Any:
+        """
+        处理条件表达式转换
+        
+        Args:
+            row: 当前行数据
+            params: 条件表达式参数
+        
+        Returns:
+            转换后的值
+        """
+        logger.info(f"处理条件表达式：{params}")
+        logger.info(f"当前行数据：{row}")
+        
+        # 获取当前字段值
+        target_col = params.get("target_col")
+        logger.info(f"目标列：{target_col}")
+        
+        # 列名映射：将字母列名映射到实际的中文列名
+        column_mapping = {
+            "C": "配達指定日",
+            "D": "時間帯指定"
+        }
+        
+        # 获取实际的字段名
+        actual_field = column_mapping.get(target_col, target_col)
+        logger.info(f"实际字段名：{actual_field}")
+        
+        current_value = row.get(actual_field)
+        logger.info(f"当前字段值：{current_value}")
+        
+        # 遍历规则列表
+        for rule in params.get("rules", []):
+            when_expr = rule.get("when")
+            set_value = rule.get("set")
+            logger.info(f"处理规则：when={when_expr}, set={set_value}")
+            
+            # 评估条件表达式
+            if self._evaluate_condition(when_expr, row):
+                logger.info(f"条件表达式匹配：{when_expr}，设置值：{set_value}")
+                
+                # 处理设置值
+                if set_value == "KEEP":
+                    return current_value
+                return set_value
+            else:
+                logger.info(f"条件表达式不匹配：{when_expr}")
+        
+        # 所有规则都不匹配，处理else分支
+        else_value = params.get("else", "KEEP")
+        logger.info(f"所有规则都不匹配，处理else分支：{else_value}")
+        if else_value == "KEEP":
+            return current_value
+        return else_value
+    
+    def _evaluate_condition(self, condition: str, row: Dict[str, Any]) -> bool:
+        """
+        评估条件表达式
+        
+        Args:
+            condition: 条件表达式字符串
+            row: 当前行数据
+        
+        Returns:
+            条件是否成立
+        """
+        logger.info(f"评估条件：{condition}")
+        logger.info(f"当前行数据：{row}")
+        
+        # 移除前后空格
+        condition = condition.strip()
+        
+        # 列名映射：将字母列名映射到实际的中文列名
+        column_mapping = {
+            "C": "配達指定日",
+            "D": "時間帯指定"
+        }
+        
+        # 处理特定格式的条件表达式
+        # 格式1: C != '' && (D == 0 || D == '0')
+        # 格式2: C == '' && (D == 0 || D == '0')
+        
+        # 直接处理已知的条件格式
+        if condition == "C != '' && (D == 0 || D == '0')":
+            # 检查C列（配達指定日）是否不为空，且D列（時間帯指定）为0或'0'
+            c_value = row.get(column_mapping["C"], "")
+            d_value = row.get(column_mapping["D"])
+            logger.info(f"条件1：C='{c_value}', D={d_value}")
+            return c_value != "" and (d_value == 0 or d_value == "0")
+        elif condition == "C == '' && (D == 0 || D == '0')":
+            # 检查C列（配達指定日）是否为空，且D列（時間帯指定）为0或'0'
+            c_value = row.get(column_mapping["C"], "")
+            d_value = row.get(column_mapping["D"])
+            logger.info(f"条件2：C='{c_value}', D={d_value}")
+            return c_value == "" and (d_value == 0 or d_value == "0")
+        
+        # 处理其他条件格式（预留）
+        logger.warning(f"未处理的条件格式：{condition}")
+        return False
+    
+    def _compare_operands(self, left: str, right: str, row: Dict[str, Any]) -> bool:
+        """
+        比较两个操作数
+        
+        Args:
+            left: 左操作数
+            right: 右操作数
+            row: 当前行数据
+        
+        Returns:
+            比较结果
+        """
+        # 获取左操作数的值
+        left_value = self._get_operand_value(left, row)
+        # 获取右操作数的值
+        right_value = self._get_operand_value(right, row)
+        
+        logger.info(f"比较操作数：{left} = {left_value}, {right} = {right_value}")
+        return left_value == right_value
+    
+    def _get_operand_value(self, operand: str, row: Dict[str, Any]) -> Any:
+        """
+        获取操作数的值
+        
+        Args:
+            operand: 操作数字符串
+            row: 当前行数据
+        
+        Returns:
+            操作数的值
+        """
+        # 去除引号
+        if (operand.startswith("'") and operand.endswith("'") or 
+            operand.startswith('"') and operand.endswith('"')):
+            return operand[1:-1]
+        
+        # 检查是否为数字
+        if operand.isdigit():
+            return int(operand)
+        
+        # 检查是否为空字符串
+        if operand == "''":
+            return ""
+        
+        # 否则视为列名
+        value = row.get(operand)
+        
+        # 处理None值
+        if value is None:
+            return ""
+        
         return value
     
     def _get_template_mapping(self) -> Dict[str, Dict[str, Any]]:

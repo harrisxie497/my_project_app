@@ -5,11 +5,11 @@ import LoginView from '../views/LoginView.vue'
 import LayoutView from '../views/LayoutView.vue'
 import TaskListView from '../views/TaskListView.vue'
 import TaskDetailView from '../views/TaskDetailView.vue'
-import RuleConfigView from '../views/admin/RuleConfigView.vue'
-import TemplateMappingView from '../views/admin/TemplateMappingView.vue'
-import AICapabilityView from '../views/admin/AICapabilityView.vue'
 import UserManagementView from '../views/admin/UserManagementView.vue'
 import OperationLogView from '../views/admin/OperationLogView.vue'
+import FileDefinitionsView from '../views/admin/FileDefinitionsView.vue'
+import FieldPipelinesView from '../views/admin/FieldPipelinesView.vue'
+import RuleDefinitionsView from '../views/admin/RuleDefinitionsView.vue'
 
 // 路由配置
 const routes = [
@@ -46,21 +46,6 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true },
     children: [
       {
-        path: 'rules',
-        name: 'admin-rules',
-        component: RuleConfigView
-      },
-      {
-        path: 'templates',
-        name: 'admin-templates',
-        component: TemplateMappingView
-      },
-      {
-        path: 'ai',
-        name: 'admin-ai',
-        component: AICapabilityView
-      },
-      {
         path: 'users',
         name: 'admin-users',
         component: UserManagementView
@@ -69,6 +54,21 @@ const routes = [
         path: 'logs',
         name: 'admin-logs',
         component: OperationLogView
+      },
+      {
+        path: 'file-definitions',
+        name: 'admin-file-definitions',
+        component: FileDefinitionsView
+      },
+      {
+        path: 'field-pipelines',
+        name: 'admin-field-pipelines',
+        component: FieldPipelinesView
+      },
+      {
+        path: 'rule-definitions',
+        name: 'admin-rule-definitions',
+        component: RuleDefinitionsView
       }
     ]
   }

@@ -4,7 +4,7 @@ import axios from '../utils/axios';
 const authService = {
   // 登录
   login(username, password) {
-    return axios.post('/api/v1/auth/login', {
+    return axios.post('/auth/login', {
       username,
       password
     }, {
@@ -22,12 +22,12 @@ const authService = {
 
   // 获取当前用户信息
   getMe() {
-    return axios.get('/api/v1/auth/me/');
+    return axios.get('/auth/me/');
   },
 
   // 登出
   logout() {
-    return axios.post('/api/v1/auth/logout/');
+    return axios.post('/auth/logout/');
   },
 
   // 保存认证信息到本地存储

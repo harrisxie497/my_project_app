@@ -79,11 +79,11 @@ const activeRoute = computed(() => {
   const path = route.path
   if (path === '/tasks') return 'tasks'
   if (path === '/task-detail/:id') return 'task_detail'
-  if (path === '/admin/rules') return 'admin_rules'
-  if (path === '/admin/templates') return 'admin_templates'
-  if (path === '/admin/ai') return 'admin_ai'
   if (path === '/admin/users') return 'admin_users'
   if (path === '/admin/logs') return 'admin_logs'
+  if (path === '/admin/file-definitions') return 'admin_file_definitions'
+  if (path === '/admin/field-pipelines') return 'admin_field_pipelines'
+  if (path === '/admin/rule-definitions') return 'admin_rule_definitions'
   return 'tasks'
 })
 
@@ -93,9 +93,9 @@ const menuItems = computed(() => {
   ]
   if (auth.value.user.role === "admin") {
     base.push(
-      { key: 'admin_rules', label: '规则配置', icon: '🧩', path: '/admin/rules' },
-      { key: 'admin_templates', label: '模板映射', icon: '🗂️', path: '/admin/templates' },
-      { key: 'admin_ai', label: 'AI 能力配置', icon: '🤖', path: '/admin/ai' },
+      { key: 'admin_file_definitions', label: '文件定义配置', icon: '📋', path: '/admin/file-definitions' },
+      { key: 'admin_field_pipelines', label: '字段映射配置', icon: '🔄', path: '/admin/field-pipelines' },
+      { key: 'admin_rule_definitions', label: '字段规则配置', icon: '📏', path: '/admin/rule-definitions' },
       { key: 'admin_users', label: '用户管理', icon: '👤', path: '/admin/users' },
       { key: 'admin_logs', label: '操作日志', icon: '🧾', path: '/admin/logs' }
     )

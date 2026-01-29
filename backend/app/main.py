@@ -7,14 +7,14 @@ from app.api import router
 # 创建所有数据库表
 Base.metadata.create_all(bind=engine)
 
-# 创建FastAPI应用实例，禁用自动重定向
+# 创建FastAPI应用实例，与主API路由器保持一致，禁用自动重定向
 app = FastAPI(
     title="日本清关Excel自动生成系统 API",
     description="日本清关Excel自动生成系统的后端API服务",
     version="1.0.0",
     redoc_url="/redoc",
     docs_url="/docs",
-    # 禁用自动重定向，避免Authorization头丢失
+    # 与主API路由器保持一致，禁用自动重定向
     redirect_slashes=False
 )
 
@@ -44,6 +44,11 @@ def root():
         "docs_url": "/docs",
         "redoc_url": "/redoc"
     }
+
+# 简单测试路由
+@app.get("/api/v1/test", tags=["test"])
+async def test_route():
+    return {"message": "Test route works!"}
 
 # 导入API路由
 app.include_router(router, prefix=settings.API_V1_STR)
