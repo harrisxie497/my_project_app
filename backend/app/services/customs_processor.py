@@ -343,7 +343,7 @@ class CustomsProcessor(BaseProcessor):
                 is_ai_rule = map_op == 'NONE' and field_type == 'AI' and ai_rule_executor and len(rule_ref) > 0
                 
                 if is_ai_rule:
-                    # AI规则：批量处理
+                    # AI规则：批量处理（直接分批处理，每批20个）
                     logger.info(f"AI规则批量处理 - 列名: {target_col}, 数据量: {len(source_column_data)}")
                     
                     # 构建批量输入数据
@@ -363,37 +363,23 @@ class CustomsProcessor(BaseProcessor):
                         
                         input_data_list.append(row)
                     
-                    # 批量执行AI规则
+                    # 批量执行AI规则（直接分批处理，每批20个）
                     rule_ref_key = rule_ref[0]
                     rule_params = pipeline.get('rule_params_json', {}).get(rule_ref_key, {}) if pipeline else {}
-                    processed_values = ai_rule_executor.execute_batch(rule_ref_key, input_data_list, rule_params)
                     
-                    # 验证AI返回的元素数量是否与输入数量一致
-                    expected_count = len(input_data_list)
-                    actual_count = len(processed_values)
+                    # 将数据分成小批次（每批20个）
+                    batch_size = 20
+                    all_processed_values = []
                     
-                    # 计算有效值的数量
-                    valid_count = sum(1 for v in processed_values if v and str(v).strip() != '')
+                    for batch_start in range(0, len(input_data_list), batch_size):
+                        batch_end = min(batch_start + batch_size, len(input_data_list))
+                        batch_input = input_data_list[batch_start:batch_end]
+                        batch_result = ai_rule_executor.execute_batch(rule_ref_key, batch_input, rule_params)
+                        all_processed_values.extend(batch_result)
+                        logger.info(f"批次{batch_start//batch_size + 1}: 处理{len(batch_input)}个数据，返回{len(batch_result)}个结果")
                     
-                    # 如果有效值数量少于输入数量的80%，则重新处理
-                    if valid_count < expected_count * 0.8:
-                        logger.warning(f"AI返回的元素数量({actual_count})或有效值数量({valid_count})少于输入数量({expected_count})的80%，尝试重新处理...")
-                        
-                        # 尝试重新处理，将数据分成小批次
-                        batch_size = 20
-                        all_processed_values = []
-                        
-                        for batch_start in range(0, expected_count, batch_size):
-                            batch_end = min(batch_start + batch_size, expected_count)
-                            batch_input = input_data_list[batch_start:batch_end]
-                            batch_result = ai_rule_executor.execute_batch(rule_ref_key, batch_input, rule_params)
-                            all_processed_values.extend(batch_result)
-                            logger.info(f"批次{batch_start//batch_size + 1}: 处理{len(batch_input)}个数据，返回{len(batch_result)}个结果")
-                        
-                        processed_values = all_processed_values
-                        logger.info(f"重新处理完成 - 列: {target_col}, 总共返回{len(processed_values)}个结果")
-                    
-                    logger.debug(f"AI批量处理完成 - 列: {target_col}, 结果数量: {len(processed_values)}")
+                    processed_values = all_processed_values
+                    logger.info(f"AI批量处理完成 - 列: {target_col}, 总共返回{len(processed_values)}个结果")
                 else:
                     # 非AI规则：逐行处理
                     # 如果source_column_data为None，则使用data_row_count
