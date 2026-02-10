@@ -483,13 +483,18 @@ class AIRuleExecutor:
         for i, line in enumerate(lines):
             try:
                 stripped_line = line.strip()
-                # 跳过空行和序号行
+                # 跳过空行和分隔线
                 if not stripped_line or stripped_line.startswith('===') or stripped_line.startswith('输入数据'):
                     continue
                 # 移除序号前缀（如"1. "）
                 if stripped_line and stripped_line[0].isdigit() and '. ' in stripped_line[:10]:
                     stripped_line = stripped_line.split('. ', 1)[1] if '. ' in stripped_line else stripped_line
-                results.append(stripped_line)
+                # 只添加非空的结果
+                if stripped_line:
+                    results.append(stripped_line)
+                else:
+                    # 如果解析后的结果为空，添加空值
+                    results.append('')
             except Exception as e:
                 logger.warning(f"解析第{i+1}行失败: {line}, 错误: {e}")
                 results.append('')
