@@ -684,6 +684,8 @@ class CustomsProcessor(BaseProcessor):
                         regex = rule_params.get('regex', '')
                         required = rule_params.get('required', False)
                         remove_dash = rule_params.get('remove_dash', False)
+                        remove_leading_trailing_spaces = rule_params.get('remove_leading_trailing_spaces', False)
+                        remove_middle_spaces = rule_params.get('remove_middle_spaces', False)
                         
                         # 处理源值
                         if source_value is None:
@@ -695,6 +697,14 @@ class CustomsProcessor(BaseProcessor):
                             # 移除横杠
                             if remove_dash and isinstance(source_value, str):
                                 source_value = source_value.replace('-', '')
+                            
+                            # 去除前后空格
+                            if remove_leading_trailing_spaces and isinstance(source_value, str):
+                                source_value = source_value.strip()
+                            
+                            # 去除中间空格
+                            if remove_middle_spaces and isinstance(source_value, str):
+                                source_value = source_value.replace(' ', '')
                             
                             # 验证regex
                             import re

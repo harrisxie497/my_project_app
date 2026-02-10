@@ -326,16 +326,20 @@ def normalize_copy_then_regex(
     source_value: Any,
     regex: str,
     required: bool = False,
-    remove_dash: bool = False
+    remove_dash: bool = False,
+    remove_leading_trailing_spaces: bool = False,
+    remove_middle_spaces: bool = False
 ) -> Any:
     """
-    复制源值→可选去"-"→按正则校验（可配置是否必填）
+    复制源值→可选去"-"→可选去前后空格→可选去中间空格→按正则校验（可配置是否必填）
     
     输入：
         - source_value: 源值
         - regex: 正则表达式（必填）
         - required: 是否必填
         - remove_dash: 是否移除连接符"-"
+        - remove_leading_trailing_spaces: 是否去除前后空格
+        - remove_middle_spaces: 是否去除中间空格
     
     输出：
         - 处理后的值
@@ -347,12 +351,23 @@ def normalize_copy_then_regex(
                 raise ValueError("值为必填项")
             return None
         
+        # 转换为字符串
+        source_value = str(source_value)
+        
         # 移除横杠
-        if remove_dash and isinstance(source_value, str):
+        if remove_dash:
             source_value = source_value.replace('-', '')
         
+        # 去除前后空格
+        if remove_leading_trailing_spaces:
+            source_value = source_value.strip()
+        
+        # 去除中间空格
+        if remove_middle_spaces:
+            source_value = source_value.replace(' ', '')
+        
         # 验证regex
-        if not re.match(regex, str(source_value)):
+        if not re.match(regex, source_value):
             raise ValueError(f"值不匹配正则表达式：{regex}")
         
         return source_value
