@@ -602,7 +602,23 @@ class AIRuleExecutor:
 
 输入数据：{input_array}"""
         
+        logger.info("=" * 100)
+        logger.info("调用AI的输入数据:")
+        logger.info("=" * 100)
+        logger.info(f"{input_array}")
+        logger.info("=" * 100)
+        logger.info(f"调用AI的提示词:")
+        logger.info("=" * 100)
+        logger.info(f"{prompt}")
+        logger.info("=" * 100)
+        
         result = self.ai_service.chat(prompt, system_prompt)
+        
+        logger.info("=" * 100)
+        logger.info("AI返回的输出数据:")
+        logger.info("=" * 100)
+        logger.info(f"{result}")
+        logger.info("=" * 100)
         
         # 解析结果
         results = []
@@ -648,7 +664,16 @@ class AIRuleExecutor:
         
         # 确保结果数量匹配
         while len(results) < len(input_data_list):
+            logger.warning(f"结果数量不足，当前: {len(results)}, 期望: {len(input_data_list)}, 添加空值")
             results.append('')
+        
+        # 如果结果数量超过输入数量，截断多余的
+        if len(results) > len(input_data_list):
+            logger.warning(f"结果数量过多，当前: {len(results)}, 期望: {len(input_data_list)}, 截断多余的")
+            results = results[:len(input_data_list)]
+        
+        logger.info(f"解析后的结果数量: {len(results)}")
+        logger.info(f"解析后的结果: {results}")
         
         return results
 

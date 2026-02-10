@@ -182,13 +182,13 @@ def read_excel_file(
                         data_row_count += 1
                         logger.debug(f"数据行 {data_row_count} - 行号: {row_idx}, 第一列值: {first_cell_value}")
                     else:
-                        # 第一列为空，也继续处理数据（不要停止读取）
-                        data_row_count += 1
-                        logger.debug(f"数据行 {data_row_count} - 行号: {row_idx}, 第一列为空")
+                        # 第一列为空，停止读取
+                        logger.info(f"第一列为空，停止读取 - 行号: {row_idx}, 已读取数据行数: {data_row_count}")
+                        break
                 else:
-                    # 行为空，也继续处理数据（不要停止读取）
-                    data_row_count += 1
-                    logger.debug(f"数据行 {data_row_count} - 行号: {row_idx}, 行为空")
+                    # 行为空，停止读取
+                    logger.info(f"行为空，停止读取 - 行号: {row_idx}, 已读取数据行数: {data_row_count}")
+                    break
                 
                 # 按列组织数据
                 for col_def in columns_config:
