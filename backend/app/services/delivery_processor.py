@@ -44,6 +44,34 @@ class DeliveryProcessor(BaseProcessor):
         self.exchange_rate_service = None
         logger.info(f"DELIVERY文件处理器初始化完成，header_params: {header_params}")
     
+    def _get_rule_params(self, pipeline: Dict[str, Any], rule_ref_key: str) -> Dict[str, Any]:
+        """
+        从pipeline中获取rule_params
+        
+        输入:
+            - pipeline: 字段处理配置
+            - rule_ref_key: 规则引用键
+        
+        输出:
+            - 规则参数字典
+        """
+        import json
+        
+        if not pipeline:
+            return {}
+        
+        rule_params_json = pipeline.get('rule_params_json', {})
+        
+        # 如果rule_params_json是字符串，则解析为字典
+        if isinstance(rule_params_json, str):
+            try:
+                rule_params_json = json.loads(rule_params_json)
+            except json.JSONDecodeError:
+                logger.error(f"解析rule_params_json失败: {rule_params_json}")
+                rule_params_json = {}
+        
+        return rule_params_json.get(rule_ref_key, {}) if rule_params_json else {}
+    
     def process(self) -> Dict[str, Any]:
         """
         执行文件处理流程
@@ -308,7 +336,7 @@ class DeliveryProcessor(BaseProcessor):
                 
                 # 批量执行AI规则
                 rule_ref_key = rule_ref[0]
-                rule_params = pipeline.get('rule_params_json', {}).get(rule_ref_key, {}) if pipeline else {}
+                rule_params = self._get_rule_params(pipeline, rule_ref_key)
                 processed_values = self.ai_rule_executor.execute_batch(rule_ref_key, input_data_list, rule_params)
                 
                 logger.debug(f"AI批量处理完成 - 列: {target_col}, 结果数量: {len(processed_values)}")
@@ -444,6 +472,16 @@ class DeliveryProcessor(BaseProcessor):
             rule_params = {}
             if pipeline:
                 rule_params_json = pipeline.get('rule_params_json')
+                
+                # 如果rule_params_json是字符串，则解析为字典
+                if isinstance(rule_params_json, str):
+                    import json
+                    try:
+                        rule_params_json = json.loads(rule_params_json)
+                    except json.JSONDecodeError:
+                        logger.error(f"解析rule_params_json失败: {rule_params_json}")
+                        rule_params_json = {}
+                
                 if rule_params_json:
                     if map_op == 'CONST':
                         # CONST操作直接使用rule_params_json

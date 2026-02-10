@@ -39,6 +39,34 @@ class CustomsProcessor(BaseProcessor):
         self.exchange_rate_service = None
         logger.info(f"清关文件处理器初始化完成，header_params: {header_params}")
     
+    def _get_rule_params(self, pipeline: Dict[str, Any], rule_ref_key: str) -> Dict[str, Any]:
+        """
+        从pipeline中获取rule_params
+        
+        输入:
+            - pipeline: 字段处理配置
+            - rule_ref_key: 规则引用键
+        
+        输出:
+            - 规则参数字典
+        """
+        import json
+        
+        if not pipeline:
+            return {}
+        
+        rule_params_json = pipeline.get('rule_params_json', {})
+        
+        # 如果rule_params_json是字符串，则解析为字典
+        if isinstance(rule_params_json, str):
+            try:
+                rule_params_json = json.loads(rule_params_json)
+            except json.JSONDecodeError:
+                logger.error(f"解析rule_params_json失败: {rule_params_json}")
+                rule_params_json = {}
+        
+        return rule_params_json.get(rule_ref_key, {}) if rule_params_json else {}
+    
     def _load_file_definitions(self) -> Dict[str, Any]:
         """
         从数据库中读取file_definitions配置
@@ -365,7 +393,7 @@ class CustomsProcessor(BaseProcessor):
                     
                     # 批量执行AI规则（直接分批处理，每批20个）
                     rule_ref_key = rule_ref[0]
-                    rule_params = pipeline.get('rule_params_json', {}).get(rule_ref_key, {}) if pipeline else {}
+                    rule_params = self._get_rule_params(pipeline, rule_ref_key)
                     
                     # 将数据分成小批次（每批20个）
                     batch_size = 20
@@ -427,7 +455,7 @@ class CustomsProcessor(BaseProcessor):
                     
                     # 批量执行AI规则
                     rule_ref_key = rule_ref[0]
-                    rule_params = pipeline.get('rule_params_json', {}).get(rule_ref_key, {}) if pipeline else {}
+                    rule_params = self._get_rule_params(pipeline, rule_ref_key)
                     processed_values = ai_rule_executor.execute_batch(rule_ref_key, input_data_list, rule_params)
                     
                     logger.debug(f"AI批量处理完成 - 列: {target_col}, 结果数量: {len(processed_values)}")
@@ -609,6 +637,16 @@ class CustomsProcessor(BaseProcessor):
             const_value = ''
             if pipeline:
                 rule_params_json = pipeline.get('rule_params_json', {})
+                
+                # 如果rule_params_json是字符串，则解析为字典
+                if isinstance(rule_params_json, str):
+                    import json
+                    try:
+                        rule_params_json = json.loads(rule_params_json)
+                    except json.JSONDecodeError:
+                        logger.error(f"解析rule_params_json失败: {rule_params_json}")
+                        rule_params_json = {}
+                
                 if 'policy_const' in rule_params_json:
                     const_value = rule_params_json['policy_const'].get('value', '')
             result = set_constant(const_value)
@@ -624,7 +662,7 @@ class CustomsProcessor(BaseProcessor):
                 # field_type为COPY时：获取source_cols的列的值，然后依据rule_params_json进行检查修正格式化即可
                 if len(rule_ref) > 0 and 'policy_copy_optional_text' in rule_ref:
                     # policy_copy_optional_text: 允许null
-                    rule_params = pipeline.get('rule_params_json', {}).get('policy_copy_optional_text', {}) if pipeline else {}
+                    rule_params = self._get_rule_params(pipeline, 'policy_copy_optional_text')
                     allow_null = rule_params.get('allow_null', True)
                     if source_value is None and not allow_null:
                         logger.debug(f"COPY操作 - policy_copy_optional_text - 源值为空且不允许null，返回None")
@@ -642,7 +680,7 @@ class CustomsProcessor(BaseProcessor):
                 if len(rule_ref) > 0:
                     if 'policy_copy_regex' in rule_ref:
                         # policy_copy_regex: 根据regex进行验证
-                        rule_params = pipeline.get('rule_params_json', {}).get('policy_copy_regex', {}) if pipeline else {}
+                        rule_params = self._get_rule_params(pipeline, 'policy_copy_regex')
                         regex = rule_params.get('regex', '')
                         required = rule_params.get('required', False)
                         remove_dash = rule_params.get('remove_dash', False)
@@ -670,7 +708,7 @@ class CustomsProcessor(BaseProcessor):
                     
                     elif 'policy_copy_optional_decimal' in rule_ref:
                         # policy_copy_optional_decimal: 允许null的小数
-                        rule_params = pipeline.get('rule_params_json', {}).get('policy_copy_optional_decimal', {}) if pipeline else {}
+                        rule_params = self._get_rule_params(pipeline, 'policy_copy_optional_decimal')
                         regex = rule_params.get('regex', '')
                         allow_null = rule_params.get('allow_null', True)
                         
@@ -701,7 +739,7 @@ class CustomsProcessor(BaseProcessor):
                 # field_type为DEFAULT时：获取source_cols的列的值，然后依据rule_params_json进行检查修正格式化即可
                 if len(rule_ref) > 0 and 'policy_default_copy' in rule_ref:
                     # policy_default_copy: 如果为空则使用default_value
-                    rule_params = pipeline.get('rule_params_json', {}).get('policy_default_copy', {}) if pipeline else {}
+                    rule_params = self._get_rule_params(pipeline, 'policy_default_copy')
                     remove_dash = rule_params.get('remove_dash', False)
                     default_value = rule_params.get('default_value', '')
                     
