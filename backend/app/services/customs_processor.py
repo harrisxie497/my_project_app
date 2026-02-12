@@ -475,7 +475,7 @@ class CustomsProcessor(BaseProcessor):
                 is_ai_rule = map_op == 'NONE' and field_type == 'AI' and ai_rule_executor and len(rule_ref) > 0
                 
                 if is_ai_rule and data_row_count:
-                    # AI规则：批量处理
+                    # AI规则：批量处理（内部分批，每批150个）
                     logger.info(f"AI规则批量处理 - 列名: {target_col}, 数据量: {data_row_count}")
                     
                     # 构建批量输入数据
@@ -491,7 +491,10 @@ class CustomsProcessor(BaseProcessor):
                         
                         input_data_list.append(row)
                     
-                    # 批量执行AI规则
+                    # 将数据分成小批次（每批150个）
+                    internal_batch_size = 150
+                    all_processed_values = []
+                    
                     rule_ref_key = rule_ref[0]
                     rule_params = self._get_rule_params(pipeline, rule_ref_key)
                     
@@ -499,10 +502,15 @@ class CustomsProcessor(BaseProcessor):
                     rule_params['rule_ref'] = rule_ref_key
                     rule_params['target_col'] = target_col
                     
-                    processed_values = ai_rule_executor.execute_batch(rule_ref_key, input_data_list, rule_params)
+                    for batch_start in range(0, len(input_data_list), internal_batch_size):
+                        batch_end = min(batch_start + internal_batch_size, len(input_data_list))
+                        batch_input = input_data_list[batch_start:batch_end]
+                        batch_result = ai_rule_executor.execute_batch(rule_ref_key, batch_input, rule_params)
+                        all_processed_values.extend(batch_result)
+                        logger.info(f"内部批次{batch_start//internal_batch_size + 1}: 处理{len(batch_input)}个数据，返回{len(batch_result)}个结果")
                     
-                    logger.debug(f"AI批量处理完成 - 列: {target_col}, 结果数量: {len(processed_values)}")
-                    logger.info(f"AI批量处理返回值 - 列: {target_col}, 返回值: {processed_values}")
+                    processed_values = all_processed_values
+                    logger.info(f"AI批量处理完成 - 列: {target_col}, 总共返回{len(processed_values)}个结果")
                 elif data_row_count:
                     # 非AI规则：逐行处理
                     for row_idx in range(1, data_row_count + 1):
@@ -1018,7 +1026,7 @@ class CustomsProcessor(BaseProcessor):
             column_data_dict,
             special_first_row,
             file_type='CUSTOMS',
-            connection=self.connection,
+            connection=self.db_session,
             sheet_name=sheet_name
         )
         

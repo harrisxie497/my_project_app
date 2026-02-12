@@ -703,8 +703,8 @@ class AIRuleExecutor:
         
         logger.info(f"从数据库中获取的提示词: {system_prompt[:200]}...")
         
-        # 内部再分批处理（每批50个），避免单次AI调用数据量过大
-        internal_batch_size = 50
+        # 内部再分批处理（每批150个），避免单次AI调用数据量过大
+        internal_batch_size = 150
         all_results = []
         
         for batch_start in range(0, len(input_data_list), internal_batch_size):
@@ -845,8 +845,8 @@ class AIRuleExecutor:
         
         logger.info(f"从数据库中获取的提示词: {system_prompt[:200]}...")
         
-        # 内部再分批处理（每批50个），避免单次AI调用数据量过大
-        internal_batch_size = 50
+        # 内部再分批处理（每批150个），避免单次AI调用数据量过大
+        internal_batch_size = 150
         all_results = []
         
         for batch_start in range(0, len(input_data_list), internal_batch_size):
