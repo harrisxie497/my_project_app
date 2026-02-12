@@ -300,6 +300,37 @@ class CustomsProcessor(BaseProcessor):
         ai_rule_executor = AIRuleExecutor(ai_service)
         exchange_rate_service = self._get_exchange_rate_service()
         
+        # 批量获取汇率：先收集所有需要的货币类型
+        logger.info("-" * 100)
+        logger.info("批量获取汇率：收集所有需要的货币类型")
+        logger.info("-" * 100)
+        
+        # 查找V列（通货代码列）
+        v_column_data = None
+        for col in column_data:
+            col_source_cols = col.get('source_cols')
+            if col_source_cols == 'V':
+                v_column_data = col.get('data')
+                break
+        
+        # 收集所有需要的货币类型
+        currency_codes = set()
+        if v_column_data and data_row_count:
+            for i in range(min(data_row_count, len(v_column_data))):
+                currency_code = v_column_data[i]
+                if currency_code and str(currency_code).strip() and str(currency_code).strip() != 'JPY':
+                    currency_codes.add(str(currency_code).strip())
+        
+        logger.info(f"收集到的货币类型: {list(currency_codes)}")
+        
+        # 批量获取汇率
+        exchange_rates = {}
+        if currency_codes:
+            exchange_rates = exchange_rate_service.get_rates_batch(list(currency_codes), 'JPY')
+            logger.info(f"批量获取汇率完成: {exchange_rates}")
+        else:
+            logger.info("没有需要获取汇率的货币类型")
+        
         processed_column_data = []
         processed_columns = set()
         processed_column_data_map = {}  # 存储已处理过的列数据，用于depends_on访问
@@ -321,7 +352,7 @@ class CustomsProcessor(BaseProcessor):
             
             if not self._check_dependencies(depends_on, processed_columns):
                 logger.warning(f"字段 {target_col} 的依赖未满足，跳过处理")
-                logger.debug(f"字段依赖检查失败 - 字段: {target_col}, 依赖: {depends_on}, 已处理列: {processed_columns}")
+                logger.info(f"字段依赖检查失败 - 字段: {target_col}, 依赖: {depends_on}, 已处理列: {processed_columns}")
                 continue
             
             logger.info(f"开始处理列 - 列名: {target_col}, map_op: {map_op}")
@@ -371,7 +402,7 @@ class CustomsProcessor(BaseProcessor):
                 is_ai_rule = map_op == 'NONE' and field_type == 'AI' and ai_rule_executor and len(rule_ref) > 0
                 
                 if is_ai_rule:
-                    # AI规则：批量处理（直接分批处理，每批20个）
+                    # AI规则：批量处理（直接分批处理，每批200个）
                     logger.info(f"AI规则批量处理 - 列名: {target_col}, 数据量: {len(source_column_data)}")
                     
                     # 构建批量输入数据
@@ -391,12 +422,19 @@ class CustomsProcessor(BaseProcessor):
                         
                         input_data_list.append(row)
                     
-                    # 批量执行AI规则（直接分批处理，每批20个）
+                    # 批量执行AI规则（直接分批处理，每批200个）
                     rule_ref_key = rule_ref[0]
                     rule_params = self._get_rule_params(pipeline, rule_ref_key)
                     
-                    # 将数据分成小批次（每批20个）
-                    batch_size = 20
+                    # 添加rule_ref和target_col到rule_params中
+                    rule_params['rule_ref'] = rule_ref_key
+                    rule_params['target_col'] = target_col
+                    
+                    # 添加调试日志，查看传递给AI批量处理方法的input_data_list
+                    logger.debug(f"传递给AI批量处理的input_data_list前5个元素: {input_data_list[:5]}")
+                    
+                    # 将数据分成小批次（每批150个）
+                    batch_size = 150
                     all_processed_values = []
                     
                     for batch_start in range(0, len(input_data_list), batch_size):
@@ -427,10 +465,10 @@ class CustomsProcessor(BaseProcessor):
                                     row[dep_col] = processed_column_data_map.get(dep_col, [])[row_idx]
                         
                         processed_value = self._process_field(
-                            map_op, source_cols, field_type, rule_ref, row, None, pipeline, ai_rule_executor
+                            map_op, source_cols, field_type, rule_ref, row, None, pipeline, ai_rule_executor, exchange_rates
                         )
                         processed_values.append(processed_value)
-                        logger.debug(f"生成值 - 列: {target_col}, 行号: {row_idx}, 处理值: {processed_value}")
+                        #logger.debug(f"生成值 - 列: {target_col}, 行号: {row_idx}, 处理值: {processed_value}")
             elif map_op in ['CONST', 'CALC', 'NONE'] or field_type in ['CONST', 'CALC', 'AI']:
                 # 没有源列数据，但需要生成固定值或序号
                 # 检查是否是AI规则，如果是则批量处理
@@ -456,6 +494,11 @@ class CustomsProcessor(BaseProcessor):
                     # 批量执行AI规则
                     rule_ref_key = rule_ref[0]
                     rule_params = self._get_rule_params(pipeline, rule_ref_key)
+                    
+                    # 添加rule_ref和target_col到rule_params中
+                    rule_params['rule_ref'] = rule_ref_key
+                    rule_params['target_col'] = target_col
+                    
                     processed_values = ai_rule_executor.execute_batch(rule_ref_key, input_data_list, rule_params)
                     
                     logger.debug(f"AI批量处理完成 - 列: {target_col}, 结果数量: {len(processed_values)}")
@@ -475,7 +518,7 @@ class CustomsProcessor(BaseProcessor):
                                         row[dep_col] = dep_data[row_idx - 1]
                         
                         processed_value = self._process_field(
-                            map_op, source_cols, field_type, rule_ref, row, None, pipeline, ai_rule_executor
+                            map_op, source_cols, field_type, rule_ref, row, None, pipeline, ai_rule_executor, exchange_rates
                         )
                         processed_values.append(processed_value)
                         logger.debug(f"生成值 - 列: {target_col}, 行号: {row_idx}, 处理值: {processed_value}")
@@ -578,7 +621,7 @@ class CustomsProcessor(BaseProcessor):
                     logger.debug(f"字段依赖检查失败 - 字段: {target_col}, 依赖: {depends_on}, 已处理字段: {processed_fields}")
                     continue
                 
-                logger.debug(f"开始处理字段 - 行号: {row_idx}, 字段: {target_col}, map_op: {map_op}")
+                #logger.debug(f"开始处理字段 - 行号: {row_idx}, 字段: {target_col}, map_op: {map_op}")
                 
                 value = self._process_field(
                     map_op, source_cols, field_type, rule_ref, row, column_index, pipeline, ai_rule_executor
@@ -613,7 +656,7 @@ class CustomsProcessor(BaseProcessor):
     
     def _process_field(self, map_op: str, source_cols: List[str], field_type: str, 
                    rule_ref: List[str], row: Dict[str, Any], column_index: Dict[str, int],
-                   pipeline: Dict[str, Any] = None, ai_rule_executor=None) -> Any:
+                   pipeline: Dict[str, Any] = None, ai_rule_executor=None, exchange_rates: Dict[str, float] = None) -> Any:
         """
         处理单个字段
         
@@ -626,6 +669,7 @@ class CustomsProcessor(BaseProcessor):
             - column_index: 列索引字典
             - pipeline: 字段处理配置（包含const_value等）
             - ai_rule_executor: AI规则执行器
+            - exchange_rates: 预获取的汇率字典
         
         输出:
             - 处理后的值
@@ -833,9 +877,8 @@ class CustomsProcessor(BaseProcessor):
                         logger.debug(f"policy_calc_invoice_price_fx_round - 原价不匹配regex: {regex}")
                         return None
                 
-                # 计算汇率转换
-                exchange_rate_service = self._get_exchange_rate_service()
-                result = calc_invoice_price_fx_round(original_price, currency_code, exchange_rate_service)
+                # 计算汇率转换，使用预获取的汇率字典
+                result = calc_invoice_price_fx_round(original_price, currency_code, exchange_rates)
                 logger.debug(f"policy_calc_invoice_price_fx_round计算 - 原价: {original_price}, 货币: {currency_code}, 结果: {result}")
                 return result
             
@@ -862,7 +905,9 @@ class CustomsProcessor(BaseProcessor):
                     for dep_col in depends_on:
                         input_data[dep_col] = row.get(dep_col)
                 
-                result = ai_rule_executor.execute(rule_ref_key, input_data, rule_params)
+                # 将单个数据包装成列表，调用批量处理方法
+                result_list = ai_rule_executor.execute_batch(rule_ref_key, [input_data], rule_params)
+                result = result_list[0] if result_list else None
                 logger.debug(f"AI操作 - rule_ref: {rule_ref_key}, input_data: {input_data}, 结果: {result}")
                 return result
             
