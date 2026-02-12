@@ -703,62 +703,84 @@ class AIRuleExecutor:
         
         logger.info(f"从数据库中获取的提示词: {system_prompt[:200]}...")
         
-        # 构建批量处理的输入数据为JSON数组格式
-        input_data_json = []
-        for idx, input_data in enumerate(input_data_list):
-            # 获取输入值，优先使用depends_on列的值
-            value = ''
+        # 内部再分批处理（每批50个），避免单次AI调用数据量过大
+        internal_batch_size = 50
+        all_results = []
+        
+        for batch_start in range(0, len(input_data_list), internal_batch_size):
+            batch_end = min(batch_start + internal_batch_size, len(input_data_list))
+            batch_input = input_data_list[batch_start:batch_end]
             
-            # 查找可能的依赖列名（X, Y等）
-            for key in ['X', 'Y', 'target_col']:
-                if key in input_data and input_data[key]:
-                    value = input_data[key]
-                    break
+            logger.info(f"内部批次处理 - 批次: {batch_start//internal_batch_size + 1}, 处理: {len(batch_input)}个数据")
             
-            # 如果没有找到依赖列的值，则使用第一个非None的值
-            if not value:
-                for key, val in input_data.items():
-                    if val is not None and val != '':
-                        value = val
+            # 构建批量处理的输入数据为JSON数组格式
+            input_data_json = []
+            for idx, input_data in enumerate(batch_input):
+                # 获取输入值，优先使用depends_on列的值
+                value = ''
+                
+                # 查找可能的依赖列名（X, Y等）
+                for key in ['X', 'Y', 'target_col']:
+                    if key in input_data and input_data[key]:
+                        value = input_data[key]
                         break
+                
+                # 如果没有找到依赖列的值，则使用第一个非None的值
+                if not value:
+                    for key, val in input_data.items():
+                        if val is not None and val != '':
+                            value = val
+                            break
+                
+                input_data_json.append({
+                    "index": str(batch_start + idx + 1),
+                    "context": value
+                })
             
-            input_data_json.append({
-                "index": str(idx + 1),
-                "context": value
-            })
-        
-        # 用户提示词是JSON数组格式
-        user_prompt = json.dumps(input_data_json, ensure_ascii=False)
-        
-        logger.info(f"调用AI - 用户提示词: {user_prompt[:200]}...")
-        
-        result = self.ai_service.chat(user_prompt, system_prompt)
-        
-        logger.info(f"调用AI - 用户提示词: {user_prompt[:200]}..., 输出数据: {result}")
-        
-        # 解析结果
-        results = []
-        
-        # 尝试解析为JSON格式
-        try:
-            result = result.strip()
-            if result.startswith('[') or result.startswith('["'):
-                # JSON数组格式
-                parsed_results = json.loads(result)
-                if isinstance(parsed_results, list):
-                    # 提取context字段的值
-                    results = []
-                    for item in parsed_results:
-                        if isinstance(item, dict) and 'context' in item:
-                            results.append(str(item['context']).strip().upper())
-                        elif isinstance(item, str):
-                            results.append(item.strip().upper())
-                    # 如果提取的结果数量不足，用空值填充
-                    while len(results) < len(parsed_results):
-                        results.append('')
+            # 用户提示词是JSON数组格式
+            user_prompt = json.dumps(input_data_json, ensure_ascii=False)
+            
+            logger.info(f"调用AI - 用户提示词: {user_prompt[:200]}...")
+            
+            result = self.ai_service.chat(user_prompt, system_prompt)
+            
+            logger.info(f"调用AI - 用户提示词: {user_prompt[:200]}..., 输出数据: {result}")
+            
+            # 解析结果
+            batch_results = []
+            
+            # 尝试解析为JSON格式
+            try:
+                result = result.strip()
+                if result.startswith('[') or result.startswith('["'):
+                    # JSON数组格式
+                    parsed_results = json.loads(result)
+                    if isinstance(parsed_results, list):
+                        # 提取context字段的值
+                        for item in parsed_results:
+                            if isinstance(item, dict) and 'context' in item:
+                                batch_results.append(str(item['context']).strip().upper())
+                            elif isinstance(item, str):
+                                batch_results.append(item.strip().upper())
+                        # 如果提取的结果数量不足，用空值填充
+                        while len(batch_results) < len(parsed_results):
+                            batch_results.append('')
+                    else:
+                        batch_results = []
                 else:
-                    results = []
-            else:
+                    # 按行分割格式
+                    lines = result.strip().split('\n')
+                    for line in lines:
+                        # 移除序号（如"1. XXX" -> "XXX"）
+                        line = line.strip()
+                        if line and line[0].isdigit() and '.' in line:
+                            # 移除序号部分
+                            parts = line.split('.', 1)
+                            if len(parts) > 1:
+                                line = parts[1].strip()
+                        batch_results.append(line.strip().upper())
+            except Exception as e:
+                logger.error(f"解析AI返回结果失败：{str(e)}", exc_info=True)
                 # 按行分割格式
                 lines = result.strip().split('\n')
                 for line in lines:
@@ -769,29 +791,31 @@ class AIRuleExecutor:
                         parts = line.split('.', 1)
                         if len(parts) > 1:
                             line = parts[1].strip()
-                    results.append(line.strip().upper())
-        except Exception as e:
-            logger.error(f"解析AI返回结果失败：{str(e)}", exc_info=True)
-            # 按行分割格式
-            lines = result.strip().split('\n')
-            for line in lines:
-                # 移除序号（如"1. XXX" -> "XXX"）
-                line = line.strip()
-                if line and line[0].isdigit() and '.' in line:
-                    # 移除序号部分
-                    parts = line.split('.', 1)
-                    if len(parts) > 1:
-                        line = parts[1].strip()
-                results.append(line.strip().upper())
+                    batch_results.append(line.strip().upper())
+            
+            # 确保批次结果数量匹配
+            while len(batch_results) < len(batch_input):
+                batch_results.append('')
+            
+            # 如果批次结果数量超过输入数量，截断多余的
+            if len(batch_results) > len(batch_input):
+                batch_results = batch_results[:len(batch_input)]
+            
+            all_results.extend(batch_results)
+            logger.info(f"内部批次处理完成 - 批次: {batch_start//internal_batch_size + 1}, 返回: {len(batch_results)}个结果")
         
-        # 确保结果数量匹配
-        while len(results) < len(input_data_list):
-            results.append('')
+        # 确保总结果数量匹配
+        while len(all_results) < len(input_data_list):
+            all_results.append('')
         
-        logger.info(f"解析后的结果数量: {len(results)}")
-        logger.info(f"解析后的结果: {results}")
+        # 如果总结果数量超过输入数量，截断多余的
+        if len(all_results) > len(input_data_list):
+            all_results = all_results[:len(input_data_list)]
         
-        return results
+        logger.info(f"解析后的结果数量: {len(all_results)}")
+        logger.info(f"解析后的结果: {all_results}")
+        
+        return all_results
     
     def _handle_translate_from_targetcol_en_upper_batch(self, input_data_list: List[Dict[str, Any]], params: Dict[str, Any]) -> List[str]:
         """
@@ -821,62 +845,84 @@ class AIRuleExecutor:
         
         logger.info(f"从数据库中获取的提示词: {system_prompt[:200]}...")
         
-        # 构建批量处理的输入数据为JSON数组格式
-        input_data_json = []
-        for idx, input_data in enumerate(input_data_list):
-            # 获取输入值，优先使用depends_on列的值
-            value = ''
+        # 内部再分批处理（每批50个），避免单次AI调用数据量过大
+        internal_batch_size = 50
+        all_results = []
+        
+        for batch_start in range(0, len(input_data_list), internal_batch_size):
+            batch_end = min(batch_start + internal_batch_size, len(input_data_list))
+            batch_input = input_data_list[batch_start:batch_end]
             
-            # 查找可能的依赖列名（X, Y等）
-            for key in ['X', 'Y', 'target_col']:
-                if key in input_data and input_data[key]:
-                    value = input_data[key]
-                    break
+            logger.info(f"内部批次处理 - 批次: {batch_start//internal_batch_size + 1}, 处理: {len(batch_input)}个数据")
             
-            # 如果没有找到依赖列的值，则使用第一个非None的值
-            if not value:
-                for key, val in input_data.items():
-                    if val is not None and val != '':
-                        value = val
+            # 构建批量处理的输入数据为JSON数组格式
+            input_data_json = []
+            for idx, input_data in enumerate(batch_input):
+                # 获取输入值，优先使用depends_on列的值
+                value = ''
+                
+                # 查找可能的依赖列名（X, Y等）
+                for key in ['X', 'Y', 'target_col']:
+                    if key in input_data and input_data[key]:
+                        value = input_data[key]
                         break
+                
+                # 如果没有找到依赖列的值，则使用第一个非None的值
+                if not value:
+                    for key, val in input_data.items():
+                        if val is not None and val != '':
+                            value = val
+                            break
+                
+                input_data_json.append({
+                    "index": str(batch_start + idx + 1),
+                    "context": value
+                })
             
-            input_data_json.append({
-                "index": str(idx + 1),
-                "context": value
-            })
-        
-        # 用户提示词是JSON数组格式
-        user_prompt = json.dumps(input_data_json, ensure_ascii=False)
-        
-        logger.info(f"调用AI - 用户提示词: {user_prompt[:200]}...")
-        
-        result = self.ai_service.chat(user_prompt, system_prompt)
-        
-        logger.info(f"调用AI - 用户提示词: {user_prompt[:200]}..., 输出数据: {result}")
-        
-        # 解析结果
-        results = []
-        
-        # 尝试解析为JSON格式
-        try:
-            result = result.strip()
-            if result.startswith('[') or result.startswith('["'):
-                # JSON数组格式
-                parsed_results = json.loads(result)
-                if isinstance(parsed_results, list):
-                    # 提取context字段的值
-                    results = []
-                    for item in parsed_results:
-                        if isinstance(item, dict) and 'context' in item:
-                            results.append(str(item['context']).strip().upper())
-                        elif isinstance(item, str):
-                            results.append(item.strip().upper())
-                    # 如果提取的结果数量不足，用空值填充
-                    while len(results) < len(parsed_results):
-                        results.append('')
+            # 用户提示词是JSON数组格式
+            user_prompt = json.dumps(input_data_json, ensure_ascii=False)
+            
+            logger.info(f"调用AI - 用户提示词: {user_prompt[:200]}...")
+            
+            result = self.ai_service.chat(user_prompt, system_prompt)
+            
+            logger.info(f"调用AI - 用户提示词: {user_prompt[:200]}..., 输出数据: {result}")
+            
+            # 解析结果
+            batch_results = []
+            
+            # 尝试解析为JSON格式
+            try:
+                result = result.strip()
+                if result.startswith('[') or result.startswith('["'):
+                    # JSON数组格式
+                    parsed_results = json.loads(result)
+                    if isinstance(parsed_results, list):
+                        # 提取context字段的值
+                        for item in parsed_results:
+                            if isinstance(item, dict) and 'context' in item:
+                                batch_results.append(str(item['context']).strip().upper())
+                            elif isinstance(item, str):
+                                batch_results.append(item.strip().upper())
+                        # 如果提取的结果数量不足，用空值填充
+                        while len(batch_results) < len(parsed_results):
+                            batch_results.append('')
+                    else:
+                        batch_results = []
                 else:
-                    results = []
-            else:
+                    # 按行分割格式
+                    lines = result.strip().split('\n')
+                    for line in lines:
+                        # 移除序号（如"1. XXX" -> "XXX"）
+                        line = line.strip()
+                        if line and line[0].isdigit() and '.' in line:
+                            # 移除序号部分
+                            parts = line.split('.', 1)
+                            if len(parts) > 1:
+                                line = parts[1].strip()
+                        batch_results.append(line.strip().upper())
+            except Exception as e:
+                logger.error(f"解析AI返回结果失败：{str(e)}", exc_info=True)
                 # 按行分割格式
                 lines = result.strip().split('\n')
                 for line in lines:
@@ -887,34 +933,32 @@ class AIRuleExecutor:
                         parts = line.split('.', 1)
                         if len(parts) > 1:
                             line = parts[1].strip()
-                    results.append(line.strip().upper())
-        except Exception as e:
-            logger.error(f"解析AI返回结果失败：{str(e)}", exc_info=True)
-            # 按行分割格式
-            lines = result.strip().split('\n')
-            for line in lines:
-                # 移除序号（如"1. XXX" -> "XXX"）
-                line = line.strip()
-                if line and line[0].isdigit() and '.' in line:
-                    # 移除序号部分
-                    parts = line.split('.', 1)
-                    if len(parts) > 1:
-                        line = parts[1].strip()
-                results.append(line.strip().upper())
+                    batch_results.append(line.strip().upper())
+            
+            # 确保批次结果数量匹配
+            while len(batch_results) < len(batch_input):
+                logger.warning(f"结果数量不足，当前: {len(batch_results)}, 期望: {len(batch_input)}, 添加空值")
+                batch_results.append('')
+            
+            # 如果批次结果数量超过输入数量，截断多余的
+            if len(batch_results) > len(batch_input):
+                logger.warning(f"结果数量过多，当前: {len(batch_results)}, 期望: {len(batch_input)}, 截断多余的")
+                batch_results = batch_results[:len(batch_input)]
+            
+            all_results.extend(batch_results)
+            logger.info(f"内部批次处理完成 - 批次: {batch_start//internal_batch_size + 1}, 返回: {len(batch_results)}个结果")
         
-        # 确保结果数量匹配
-        while len(results) < len(input_data_list):
-            logger.warning(f"结果数量不足，当前: {len(results)}, 期望: {len(input_data_list)}, 添加空值")
-            results.append('')
+        # 确保总结果数量匹配
+        while len(all_results) < len(input_data_list):
+            all_results.append('')
         
-        # 如果结果数量超过输入数量，截断多余的
-        if len(results) > len(input_data_list):
-            logger.warning(f"结果数量过多，当前: {len(results)}, 期望: {len(input_data_list)}, 截断多余的")
-            results = results[:len(input_data_list)]
+        # 如果总结果数量超过输入数量，截断多余的
+        if len(all_results) > len(input_data_list):
+            all_results = all_results[:len(input_data_list)]
         
-        logger.info(f"解析后的结果数量: {len(results)}")
-        logger.info(f"解析后的结果: {results}")
+        logger.info(f"解析后的结果数量: {len(all_results)}")
+        logger.info(f"解析后的结果: {all_results}")
         
-        return results
+        return all_results
 
 

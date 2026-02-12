@@ -1007,12 +1007,19 @@ class CustomsProcessor(BaseProcessor):
                 col_values = col['data']
                 column_data_dict[col_name] = col_values
         
+        # 获取工作表名称
+        sheet_name = output_file_def.get('sheet_name', 'Sheet') if output_file_def else 'Sheet'
+        logger.info(f"工作表名称：{sheet_name}")
+        
         # 使用按列写入的方式生成结果文件，包含特殊第一行
         write_excel_file_by_columns(
             self.result_file_path,
             headers,
             column_data_dict,
-            special_first_row
+            special_first_row,
+            file_type='CUSTOMS',
+            connection=self.connection,
+            sheet_name=sheet_name
         )
         
         logger.info("=" * 100)
