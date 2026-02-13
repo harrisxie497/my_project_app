@@ -1,37 +1,45 @@
-from sqlalchemy.orm import Session
-from uuid import uuid4
-from app.core.database import SessionLocal, engine, Base
-from app.models.user import User
-from app.core.auth import get_password_hash
+"""
+初始化数据库 - 创建所有表
+"""
+import sys
+import os
+import logging
 
-# 创建所有数据库表
-Base.metadata.create_all(bind=engine)
+# 添加项目路径
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# 创建数据库会话
-db = SessionLocal()
+from app.core.database import Base, engine
+from app.models import user, task, field_pipeline, rule_definition, file_definition, excel_config
 
-try:
-    # 删除已存在的管理员用户（如果有），以便重新创建
-    db.query(User).filter(User.username == "admin").delete()
-    db.commit()
-    
-    # 使用新的密码哈希算法创建管理员用户
-    admin_user = User(
-        id=f"u_{uuid4().hex[:8]}",
-        username="admin",
-        display_name="管理员",
-        hashed_password=get_password_hash("admin123"),
-        role="admin"
-    )
-    db.add(admin_user)
-    db.commit()
-    print("默认管理员用户创建成功")
-    print(f"用户名: {admin_user.username}")
-    print(f"密码: admin123")
-    print(f"角色: {admin_user.role}")
-        
-except Exception as e:
-    print(f"创建管理员用户失败: {e}")
-    db.rollback()
-finally:
-    db.close()
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+def init_db():
+    """
+    初始化数据库：创建所有表
+    """
+    logger.info("开始初始化数据库...")
+    logger.info(f"数据库URL: {engine.url}")
+
+    try:
+        # 创建所有表
+        Base.metadata.create_all(bind=engine)
+        logger.info("数据库表创建成功！")
+
+        # 列出所有表
+        tables = Base.metadata.tables.keys()
+        logger.info(f"已创建的表: {', '.join(tables)}")
+
+    except Exception as e:
+        logger.error(f"数据库初始化失败: {str(e)}", exc_info=True)
+        raise
+
+
+if __name__ == "__main__":
+    init_db()
+    logger.info("数据库初始化完成")

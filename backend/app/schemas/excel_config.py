@@ -8,7 +8,7 @@ class ExcelConfigBase(BaseModel):
     file_type: FileType = Field(..., description="文件类型")
     default_font: str = Field(default="Meiryo", description="默认字体")
     date_format: str = Field(default="YYYY-MM-DD", description="日期格式")
-    merge_ranges: List[str] = Field(default=[], description="合并区域列表")
+    merge_ranges: List[dict] = Field(default=[], description="合并区域列表")
     style_rules: List[dict] = Field(default=[], description="样式规则列表")
     enabled: bool = Field(default=True, description="是否启用")
 
@@ -20,7 +20,7 @@ class ExcelConfigCreate(ExcelConfigBase):
 class ExcelConfigUpdate(BaseModel):
     default_font: Optional[str] = Field(None, description="默认字体")
     date_format: Optional[str] = Field(None, description="日期格式")
-    merge_ranges: Optional[List[str]] = Field(None, description="合并区域列表")
+    merge_ranges: Optional[List[dict]] = Field(None, description="合并区域列表")
     style_rules: Optional[List[dict]] = Field(None, description="样式规则列表")
     enabled: Optional[bool] = Field(None, description="是否启用")
 
@@ -30,7 +30,7 @@ class ExcelConfigResponse(BaseModel):
     file_type: FileType
     default_font: str
     date_format: str
-    merge_ranges: List[str]
+    merge_ranges: List[dict]
     style_rules: List[dict]
     enabled: bool
     is_active: bool

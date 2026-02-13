@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.routes import auth, tasks, users, operation_logs, file_definitions, field_pipelines, rule_definitions, test_route, test_config, test_simple
+from app.api.routes import auth, tasks, users, operation_logs, file_definitions, field_pipelines, rule_definitions, test_route, test_config, test_simple, excel_configs
 
 # 创建主API路由器
 router = APIRouter(redirect_slashes=False)
@@ -24,6 +24,9 @@ router.include_router(field_pipelines.router, prefix="/field-pipelines", tags=["
 
 # 包含规则定义路由
 router.include_router(rule_definitions.router, prefix="/rule-definitions", tags=["rule-definitions"])
+
+# 包含Excel配置路由
+router.include_router(excel_configs.router, prefix="/excel-configs", tags=["excel-configs"])
 
 # 包含测试配置路由
 router.include_router(test_config.router, prefix="/test-config", tags=["test-config"])
