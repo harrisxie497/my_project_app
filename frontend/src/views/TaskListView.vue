@@ -302,9 +302,6 @@ const submitCreate = async () => {
     // 关闭对话框
     createDialog.value = false;
     
-    // 跳转到任务详情页
-    router.push(`/task-detail/${newTask.task_id}`);
-    
     // 显示成功消息
     ElMessage.success('任务创建成功');
     
@@ -323,7 +320,16 @@ const goTaskDetail = (row) => {
 // 下载结果文件
 const downloadResult = async (taskId) => {
   try {
-    await taskService.downloadTaskFile(taskId, 'result');
+    const response = await taskService.downloadTaskFile(taskId, 'result');
+    // 创建下载链接，blob数据在response.data中
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${taskId}_result.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
     ElMessage.success('下载结果文件成功');
   } catch (error) {
     console.error('下载结果文件失败:', error);
