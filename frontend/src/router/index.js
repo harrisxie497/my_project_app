@@ -21,7 +21,8 @@ const routes = [
   },
   {
     path: '/',
-    redirect: '/tasks'
+    redirect: '/login',
+    meta: { requiresAuth: false }
   },
   {
     path: '/tasks',
