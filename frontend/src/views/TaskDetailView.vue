@@ -53,7 +53,7 @@
         <div v-else-if="taskDetail.status==='failed'">
           <div class="section-title" style="margin-bottom: 8px;">失败原因</div>
           <el-alert type="error" :closable="false"
-            :title="taskDetail.error?.message || '未知错误'"
+            :title="taskDetail.progress_message || taskDetail.error?.message || '未知错误'"
             :description="taskDetail.error ? '错误码：'+taskDetail.error.code+'；位置：'+taskDetail.error.detail?.sheet+' R'+taskDetail.error.detail?.row+' C'+taskDetail.error.detail?.col : '无详细信息'"
           >
           </el-alert>
