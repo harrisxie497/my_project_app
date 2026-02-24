@@ -2,8 +2,29 @@ import logging
 import json
 from typing import Dict, Any, List
 import pymysql
+import os
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+def get_db_config():
+    """
+    从环境变量获取数据库配置
+    
+    输出：
+        - 数据库连接配置字典
+    """
+    database_url = os.getenv('DATABASE_URL', 'mysql+pymysql://app:app123456@localhost:3306/demo?charset=utf8mb4')
+    parsed = urlparse(database_url.replace('mysql+pymysql://', 'mysql://'))
+    
+    return {
+        'host': parsed.hostname or 'localhost',
+        'port': parsed.port or 3306,
+        'user': parsed.username or 'app',
+        'password': parsed.password or 'app123456',
+        'database': parsed.path.lstrip('/') or 'demo',
+        'charset': 'utf8mb4'
+    }
 
 
 class AIRuleExecutor:
@@ -17,14 +38,7 @@ class AIRuleExecutor:
             - ai_service: DeepSeek AI服务实例
         """
         self.ai_service = ai_service
-        self.db_config = {
-            'host': '172.18.207.224',
-            'port': 3306,
-            'user': 'app',
-            'password': 'app123456',
-            'database': 'demo',
-            'charset': 'utf8mb4'
-        }
+        self.db_config = get_db_config()
         self.rule_batch_handlers = {
             'policy_ai_goods_en': self._handle_goods_en_batch,
             'policy_ai_material_en': self._handle_material_en_batch,

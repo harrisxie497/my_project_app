@@ -2,8 +2,30 @@ from typing import Dict, Any, List, Optional
 from openpyxl import load_workbook
 import logging
 import pymysql
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+def get_db_config():
+    """
+    从环境变量获取数据库配置
+    
+    输出：
+        - 数据库连接配置字典
+    """
+    database_url = os.getenv('DATABASE_URL', 'mysql+pymysql://app:app123456@localhost:3306/demo?charset=utf8mb4')
+    parsed = urlparse(database_url.replace('mysql+pymysql://', 'mysql://'))
+    
+    return {
+        'host': parsed.hostname or 'localhost',
+        'port': parsed.port or 3306,
+        'user': parsed.username or 'app',
+        'password': parsed.password or 'app123456',
+        'database': parsed.path.lstrip('/') or 'demo',
+        'charset': 'utf8mb4'
+    }
+
+import os
 
 def read_excel_file(
     file_path: str, 
@@ -40,14 +62,8 @@ def read_excel_file(
         data_start_row = 2
         if file_type and file_role:
             logger.info(f"开始查询file_definitions - file_type: {file_type}, file_role: {file_role}")
-            connection = pymysql.connect(
-                host='172.18.207.224',
-                port=3306,
-                user='app',
-                password='app123456',
-                database='demo',
-                charset='utf8mb4'
-            )
+            db_config = get_db_config()
+            connection = pymysql.connect(**db_config)
             try:
                 with connection.cursor() as cursor:
                     sql = """
