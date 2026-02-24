@@ -250,7 +250,7 @@ async def disable_user(
     return GeneralResponse(data=UserResponse.from_orm(user))
 
 # 管理员获取用户列表
-@admin_router.get("/", response_model=GeneralResponse[List[UserResponse]], tags=["admin-users"])
+@admin_router.get("/", response_model=GeneralResponse[PaginatedUserList], tags=["admin-users"])
 async def admin_get_users(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -261,7 +261,14 @@ async def admin_get_users(
     # 转换为响应模型
     user_list = [UserResponse.from_orm(user) for user in users]
     
-    return GeneralResponse(data=user_list)
+    return GeneralResponse(
+        data=PaginatedUserList(
+            items=user_list,
+            page=1,
+            page_size=len(user_list),
+            total=len(user_list)
+        )
+    )
 
 # 管理员创建用户
 @admin_router.post("/", response_model=GeneralResponse[dict], tags=["admin-users"])
