@@ -4,8 +4,73 @@ import logging
 import pymysql
 from urllib.parse import urlparse
 import os
+import subprocess
+import shutil
 
 logger = logging.getLogger(__name__)
+
+def calculate_formulas_with_libreoffice(file_path: str) -> str:
+    """
+    使用 LibreOffice 打开文件并保存，强制计算公式
+    
+    输入：
+        - file_path: Excel 文件路径
+    
+    输出：
+        - 处理后的文件路径
+    
+    异常：
+        - RuntimeError: 当 LibreOffice 处理失败时抛出
+    """
+    try:
+        # 检查 LibreOffice 是否可用
+        result = subprocess.run(['which', 'soffice'], capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.warning("LibreOffice 未安装，跳过公式计算")
+            return file_path
+        
+        # 创建临时目录
+        temp_dir = os.path.join(os.path.dirname(file_path), 'temp_libreoffice')
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        # 使用 LibreOffice 打开文件并保存（headless 模式）
+        cmd = [
+            'soffice',
+            '--headless',
+            '--convert-to', 'xlsx',
+            '--outdir', temp_dir,
+            file_path
+        ]
+        
+        logger.info(f"使用 LibreOffice 计算公式 - 文件: {file_path}")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        if result.returncode != 0:
+            logger.error(f"LibreOffice 处理失败: {result.stderr}")
+            return file_path
+        
+        # 获取处理后的文件
+        output_file = os.path.join(temp_dir, os.path.basename(file_path))
+        
+        # 备份原文件
+        backup_file = file_path + '.backup'
+        shutil.copy2(file_path, backup_file)
+        
+        # 替换原文件
+        shutil.move(output_file, file_path)
+        
+        # 删除临时目录
+        shutil.rmtree(temp_dir)
+        
+        logger.info(f"LibreOffice 计算公式完成 - 文件: {file_path}")
+        return file_path
+        
+    except subprocess.TimeoutExpired:
+        logger.error("LibreOffice 处理超时")
+        return file_path
+    except Exception as e:
+        logger.error(f"LibreOffice 处理失败: {str(e)}")
+        return file_path
 
 def get_db_config():
     """
@@ -100,11 +165,14 @@ def read_excel_file(
             finally:
                 connection.close()
         
+        # 使用 LibreOffice 计算公式（如果可用）
+        processed_file_path = calculate_formulas_with_libreoffice(file_path)
+        
         # 第一次读取：使用 data_only=True 获取公式的计算值
-        workbook_calc = load_workbook(file_path, data_only=True)
+        workbook_calc = load_workbook(processed_file_path, data_only=True)
         
         # 第二次读取：使用 data_only=False 获取公式的原始信息（用于判断是否是公式）
-        workbook_raw = load_workbook(file_path, data_only=False)
+        workbook_raw = load_workbook(processed_file_path, data_only=False)
         
         if sheet_name:
             if sheet_name not in workbook_calc.sheetnames:
@@ -226,11 +294,11 @@ def read_excel_file(
                         # 检查是否是公式单元格且计算值为None
                         if cell_value is None and cell_raw is not None and cell_raw.data_type == 'f':
                             # 这是一个公式，但计算值为None
-                            # 说明公式未计算，抛出错误
-                            raise ValueError(
-                                f"检测到未计算的公式单元格 - 列: {col_letter}, 行号: {row_idx}。"
-                                f"请先在Excel中打开文件并保存，确保所有公式都已计算后再上传。"
-                            )
+                            # 说明 LibreOffice 不可用或计算失败
+                            # 返回公式字符串，而不是抛出错误
+                            formula_string = cell_raw.value
+                            logger.warning(f"公式未计算，返回公式字符串 - 列: {col_letter}, 行号: {row_idx}, 公式: {formula_string}")
+                            cell_value = formula_string
                         elif cell_value is None:
                             # 不是公式，值就是None，返回空串
                             cell_value = ""
