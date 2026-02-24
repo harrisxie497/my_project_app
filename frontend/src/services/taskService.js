@@ -23,7 +23,9 @@ const taskService = {
 
   // 运行任务
   runTask(taskId) {
-    return axios.post(`/tasks/${taskId}/run`);
+    return axios.post(`/tasks/${taskId}/run`, {}, {
+      timeout: 300000  // 5分钟超时，因为AI处理可能需要较长时间
+    });
   },
 
   // 获取任务对比统计

@@ -163,14 +163,14 @@ def calc_seq_from_1(row_index: int, step: int = 1, start: int = 1) -> int:
     return start + row_index * step
 
 
-def calc_invoice_price_fx_round(original_price: float, currency_code: str, exchange_rate_service, regex: str = r'^\d+$') -> int:
+def calc_invoice_price_fx_round(original_price: float, currency_code: str, exchange_rates: Dict[str, float] = None, regex: str = r'^\d+$') -> int:
     """
     计算インボイス価格（汇率换算）
     
     输入：
         - original_price: 原始文件中R列的值（外币价格）
         - currency_code: Q列的通货代码（如：USD、EUR等）
-        - exchange_rate_service: 汇率服务实例
+        - exchange_rates: 汇率字典（可选，如果不提供则使用exchange_rate_service）
         - regex: 输出校验正则表达式（例如整数：^\d+$）
     
     输出：
@@ -179,7 +179,15 @@ def calc_invoice_price_fx_round(original_price: float, currency_code: str, excha
     try:
         logger.info(f"计算汇率换算：{original_price} {currency_code} -> JPY")
         
-        exchange_rate = exchange_rate_service.get_rate(currency_code, 'JPY')
+        # 如果提供了汇率字典，则从字典中获取汇率
+        if exchange_rates is not None:
+            exchange_rate = exchange_rates.get(currency_code, 1.0)
+            logger.info(f"使用预获取的汇率：{currency_code} -> JPY = {exchange_rate}")
+        else:
+            # 向后兼容：如果没有提供汇率字典，则使用exchange_rate_service
+            from app.services.exchange_rate_service import ExchangeRateService
+            exchange_rate_service = ExchangeRateService(api_key="")
+            exchange_rate = exchange_rate_service.get_rate(currency_code, 'JPY')
         
         jpy_price = original_price * exchange_rate
         jpy_price = int(round(jpy_price))
@@ -551,45 +559,6 @@ def validate_required_input(
 
 # ==================== AI ====================
 
-def ai_decimal_fix(
-    input_data: Dict[str, Any],
-    ai_service = None,
-    current_time: Optional[str] = None,
-    system_prompt: Optional[str] = None
-) -> str:
-    """
-    重量：按品名/材质/原重量进行合理修正，输出两位小数（后台固定流程）
-
-    输入：
-        - input_data: 输入数据字典（包含源列数据，如 F=重量, H=品名, I=材质）
-        - ai_service: AI服务实例
-        - current_time: 当前时间（用于AI上下文）
-        - system_prompt: 系统提示词（从配置表读取）
-
-    输出：
-        - 修正后的重量（两位小数）
-    """
-    if not ai_service:
-        logger.warning("ai_decimal_fix: AI服务未提供，返回原值")
-        return str(input_data.get('F', 0))
-
-    # 用户提示词 - 基于输入数据动态构建
-    user_prompt = f"""请分析以下货物信息，修复重量数据的小数点问题。
-货物重量：{input_data.get('F', '')}
-品名：{input_data.get('H', '')}
-材质：{input_data.get('I', '')}
-当前时间：{current_time or datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-请只返回修复后的重量数值，不要包含单位或其他文字。"""
-
-    try:
-        result = ai_service.chat(user_prompt, system_prompt)
-        return str(float(result.strip()))
-    except Exception as e:
-        logger.error(f"ai_decimal_fix 调用AI失败：{str(e)}")
-        return str(input_data.get('F', 0))
-
-
 def ai_goods_name_en(
     input_data: Dict[str, Any],
     ai_service = None,
@@ -613,15 +582,8 @@ def ai_goods_name_en(
         return str(input_data.get('H', ''))
 
     # 用户提示词 - 基于输入数据动态构建
-    user_prompt = f"""请将以下日文品名翻译成英文。
-日文品名：{input_data.get('H', '')}
-当前时间：{current_time or datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-要求：
-1. 翻译要准确、专业
-2. 不要包含特殊字符（/、\等）
-3. 长度不超过60个字符
-4. 只返回翻译结果，不要包含其他文字"""
+    user_prompt = f"""
+日文品名：{input_data.get('H', '')}"""
 
     try:
         result = ai_service.chat(user_prompt, system_prompt)
@@ -655,14 +617,8 @@ def ai_material_translate_and_substitute(
         return str(input_data.get('I', ''))
 
     # 用户提示词 - 基于输入数据动态构建
-    user_prompt = f"""请将以下日文材质翻译成英文。
-日文材质：{input_data.get('I', '')}
-当前时间：{current_time or datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-要求：
-1. 翻译要准确、专业
-2. 转换为标准材质代码（如：COTTON、POLYESTER等）
-3. 只返回翻译结果，不要包含其他文字"""
+    user_prompt = f"""
+日文材质：{input_data.get('I', '')}"""
 
     try:
         result = ai_service.chat(user_prompt, system_prompt)
@@ -695,16 +651,8 @@ def ai_ja_name_clean(
         return str(input_data.get('AD', ''))
 
     # 用户提示词 - 基于输入数据动态构建
-    user_prompt = f"""请清理以下日文收件人名。
-日文收件人名：{input_data.get('AD', '')}
-日文收件人地址：{input_data.get('AE', '')}
-当前时间：{current_time or datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-要求：
-1. 移除敬语和称谓（様、様、先生、様方等）
-2. 标准化假名（平假名/片假名）
-3. 长度不超过40个字符
-4. 只返回清理后的名字，不要包含其他文字"""
+    user_prompt = f"""
+日文收件人名：{input_data.get('AD', '')}"""
 
     try:
         result = ai_service.chat(user_prompt, system_prompt)
@@ -737,13 +685,8 @@ def ai_translate_from_targetcol_to_en_upper(
         return str(input_data.get('target_col', ''))
 
     # 用户提示词 - 基于输入数据动态构建
-    user_prompt = f"""请将以下日文翻译成英文。
-日文内容：{input_data.get('target_col', '')}
-当前时间：{current_time or datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-要求：
-1. 翻译要准确、专业
-2. 只返回翻译结果，不要包含其他文字"""
+    user_prompt = f"""
+日文内容：{input_data.get('target_col', '')}"""
 
     try:
         result = ai_service.chat(user_prompt, system_prompt)
@@ -782,19 +725,8 @@ def ai_ja_address_clean(
         return ''
     
     # 用户提示词 - 基于输入数据动态构建
-    user_prompt = f"""请将以下日文地址翻译成英文（罗马字）。
-日文地址：{address}
-当前时间：{current_time or datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-要求：
-1. 地址层级完整：都道府县 → 市/区 → 町/地区 → 丁目/番地
-2. 例如："愛知県名古屋市中区1-2-3" 应翻译为 "AICHI KEN NAGOYA SHI NAKA KU 1-2-3"
-3. 例如："東京 都渋谷区渋谷1-2-3" 应翻译为 "TOKYO TO SHIBUYA KU 1-2-3"
-4. 例如："大阪府大阪市中央区1-2-3" 应翻译为 "OSAKA FU OSAKA SHI CHUO KU 1-2-3"
-5. 中间不需要加标点符号，只加入空格分隔各层级
-6. 门牌部分（如1-2-3）保持原格式，-两边都不需要有空格
-7. 翻译结果需全部大写（全罗马大写）
-8. 只返回翻译后的地址，不要包含其他文字"""
+    user_prompt = f"""
+日文地址：{address}"""
     
     try:
         result = ai_service.chat(user_prompt, system_prompt)
@@ -802,3 +734,37 @@ def ai_ja_address_clean(
     except Exception as e:
         logger.error(f"ai_ja_address_clean 调用AI失败：{str(e)}")
         return str(input_data.get('AE', ''))
+
+
+def ai_translate_name_en_upper(
+    input_data: Dict[str, Any],
+    ai_service = None,
+    current_time: Optional[str] = None,
+    system_prompt: Optional[str] = None
+) -> str:
+    """
+    日文人名翻译为英文并大写（后台固定流程）
+
+    输入：
+        - input_data: 输入数据字典（包含源列数据，如 target_col=目标列值）
+        - ai_service: AI服务实例
+        - current_time: 当前时间（用于AI上下文）
+        - system_prompt: 系统提示词（从配置表读取）
+
+    输出：
+        - 翻译后的英文（大写）
+    """
+    if not ai_service:
+        logger.warning("ai_translate_name_en_upper: AI服务未提供，返回原值")
+        return str(input_data.get('target_col', ''))
+
+    # 用户提示词 - 基于输入数据动态构建
+    user_prompt = f"""
+日文内容：{input_data.get('target_col', '')}"""
+
+    try:
+        result = ai_service.chat(user_prompt, system_prompt)
+        return result.upper()
+    except Exception as e:
+        logger.error(f"ai_translate_name_en_upper 调用AI失败：{str(e)}")
+        return str(input_data.get('target_col', ''))

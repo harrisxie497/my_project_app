@@ -337,6 +337,11 @@ class DeliveryProcessor(BaseProcessor):
                 # 批量执行AI规则
                 rule_ref_key = rule_ref[0]
                 rule_params = self._get_rule_params(pipeline, rule_ref_key)
+                
+                # 添加rule_ref和target_col到rule_params中
+                rule_params['rule_ref'] = rule_ref_key
+                rule_params['target_col'] = target_col
+                
                 processed_values = self.ai_rule_executor.execute_batch(rule_ref_key, input_data_list, rule_params)
                 
                 logger.debug(f"AI批量处理完成 - 列: {target_col}, 结果数量: {len(processed_values)}")

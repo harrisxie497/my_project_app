@@ -45,7 +45,7 @@ async def get_field_pipelines(
     
     # 应用分页
     skip = (page - 1) * page_size
-    field_pipelines = query.order_by(FieldPipeline.order).offset(skip).limit(page_size).all()
+    field_pipelines = query.order_by(FieldPipeline.order_num).offset(skip).limit(page_size).all()
     
     # 转换为响应模型
     field_pipeline_list = [FieldPipelineResponse.from_orm(fp) for fp in field_pipelines]
@@ -171,7 +171,7 @@ async def get_execution_order(
     field_pipelines = db.query(FieldPipeline).filter(
         FieldPipeline.file_type == file_type,
         FieldPipeline.enabled == True
-    ).order_by(FieldPipeline.order).all()
+    ).order_by(FieldPipeline.order_num).all()
     
     if not field_pipelines:
         raise HTTPException(

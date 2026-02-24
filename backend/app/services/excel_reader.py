@@ -116,10 +116,10 @@ def read_excel_file(
                 
                 # 对表头行数据进行规范化处理（去除空格、统一编码）
                 normalized_headers = []
-                logger.debug(f"开始规范化表头 - header_row_data数量: {len(header_row_data)}")
+                #logger.debug(f"开始规范化表头 - header_row_data数量: {len(header_row_data)}")
                 
                 for idx, header in enumerate(header_row_data):
-                    logger.debug(f"  处理表头 - idx: {idx}, header: {repr(header)}, 类型: {type(header)}")
+                #    logger.debug(f"  处理表头 - idx: {idx}, header: {repr(header)}, 类型: {type(header)}")
                     
                     if header:
                         # 去除首尾空格
@@ -136,7 +136,7 @@ def read_excel_file(
                         normalized = ""
                     
                     normalized_headers.append(normalized)
-                    logger.debug(f"  规范化后 - idx: {idx}, normalized: {repr(normalized)}")
+                    #logger.debug(f"  规范化后 - idx: {idx}, normalized: {repr(normalized)}")
                 
                 logger.debug(f"规范化后的表头 - 数量: {len(normalized_headers)}, 前10个: {normalized_headers[:10]}")  # 打印前10个
                 
@@ -149,7 +149,7 @@ def read_excel_file(
                     normalized_expected = expected_header.strip() if expected_header else ""
                     
                     for idx, header in enumerate(normalized_headers):
-                        logger.debug(f"  检查表头 - idx: {idx}, header: {repr(header)}, 是否匹配: {header == normalized_expected}")
+                    #    logger.debug(f"  检查表头 - idx: {idx}, header: {repr(header)}, 是否匹配: {header == normalized_expected}")
                         if header == normalized_expected:
                             column_map[col_letter] = idx
                             logger.debug(f"列映射成功 - {col_letter}: {expected_header} -> 索引 {idx}")

@@ -25,6 +25,7 @@ class BaseProcessor:
         self.diff_file_path = os.path.join(task_dir, "diff.xlsx")
         self.db_session = db_session
         self.file_type = file_type
+        self.file_definitions = None
     
     def process(self) -> Dict[str, Any]:
         """

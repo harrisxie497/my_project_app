@@ -1,0 +1,26 @@
+====================================================================================================
+ID: 8
+列: H - 品名
+file_type: CUSTOMS
+map_op: NONE
+field_type: AI
+source_cols: ["H"]
+depends_on: []
+rule_ref: ["policy_ai_goods_en"]
+rule_params_json: "{\"policy_ai_goods_en\": {}}"
+enabled: 1
+schema_json: {"desc": "品名：去括号备注→英译→大写→去冗余（后台固定流程）", "handler": "ai.goods_name_en", "configurable_params": {"system_prompt": "输入的数组数据是“品名”，也就是购买的商品名称，这是一个数组数组，针对每一个元素，删除括号内内容（如“AIRPLANE TOY (L码)”→“AIRPLANE TOY”），英文名称统一大写（“cotton t-shirt”→“COTTON T-SHIRT”），前如果前后二个是重复含义，保留一个即可； 对于输出的要求，也是一个数组，并且顺序和数组长度保持输入的一样。 "}}
+
+====================================================================================================
+ID: 25
+列: Y - 收件人地址
+file_type: CUSTOMS
+map_op: NONE
+field_type: AI
+source_cols: ["M"]
+depends_on: []
+rule_ref: ["policy_ai_text_dress_clean"]
+rule_params_json: "{\"policy_ai_text_dress_clean\": {}}"
+enabled: 1
+schema_json: "{\"desc\": \"收件人地址（日文）翻译：翻译为英文（罗马大写），保持标准地址格式（后台固定流程）\", \"handler\": \"ai.ja_address_clean\", \"configurable_params\": {\"system_prompt\": \"你是一个日文地址整理专家，请将以下日文地址进行格式化整理并输出。\\n有以下要求：\\n1.地址的最后面需校验门牌格式，日本地址门牌格式（如\\\"4-10-25\\\"\\\"1-102B\\\"），无法解析则虚拟合理门牌格式（如\\\"1-10-25\\\"），如果门牌号码为空，请虚构后面的门牌号码，门牌号码之间用-链接。\\n2.最后按照日本标准地址格式输出（如\\\"东京都渋谷区道玄坂1-10-25\\\"），在门牌的部分不能有空格，门牌号码后面不在有其他的信息（例如：1-10-101这种就很好， 在-两边都不需要有空格）\\n3.中间不需要加标点符号，原有地址输入中有空格也不需要管。\\n4.输入有{input_count}个元素，输出必须保持{input_count}个元素，必须严格按顺序返回{input_count}个元素，不能多也不能少。\"}}"
+

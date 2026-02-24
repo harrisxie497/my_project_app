@@ -1,78 +1,56 @@
-#!/usr/bin/env python3
 """
-更新D列（时间帯指定）的配置
+更新D列的配置，添加对C列的依赖
 """
-
-import sys
-import os
+from app.core.database import SessionLocal
+from app.models.field_pipeline import FieldPipeline
 import json
 
-# 添加项目根目录到Python路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+print("=" * 80)
+print("更新D列（時間帯指定）的配置")
+print("=" * 80)
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.core.database import Base
-from app.models.rule_item import RuleItem, FieldType, ExecutorType
+db = SessionLocal()
 
-def update_d_column_config():
-    """更新D列的配置"""
-    print("更新D列（时间帯指定）的配置...")
-    
-    # 创建数据库连接
-    DATABASE_URL = "sqlite:///./app.db"
-    engine = create_engine(DATABASE_URL)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    
-    # 创建所有表（如果不存在）
-    Base.metadata.create_all(bind=engine)
-    
-    db = SessionLocal()
-    
-    try:
-        # 查找D列的规则项
-        d_column_rule = db.query(RuleItem).filter(
-            RuleItem.target_column == "D"
-        ).first()
-        
-        if d_column_rule:
-            print(f"找到D列的现有规则项：ID={d_column_rule.id}")
-            
-            # 更新配置
-            d_column_rule.field_type = FieldType.FORMAT
-            d_column_rule.executor = ExecutorType.PROGRAM
-            d_column_rule.process_depends_on = "C,D"
-            
-            # 配置条件表达式规则
-            proc_rules = {
-                "transformation_type": "conditional_expr",
-                "target_col": "D",
-                "rules": [
-                    {
-                        "when": "C != '' && (D == 0 || D == '0')",
-                        "set": "00"
-                    },
-                    {
-                        "when": "C == '' && (D == 0 || D == '0')",
-                        "set": ""
-                    }
-                ],
-                "else": "KEEP"
-            }
-            
-            d_column_rule.process_rules_json = proc_rules
-            
-            db.commit()
-            print("✅ D列配置已更新")
-        else:
-            print("⚠️  未找到D列的规则项，需要先创建")
-            print("请先创建规则表和规则项，或者使用默认配置")
-            
-    except Exception as e:
-        print(f"❌ 更新失败：{str(e)}")
-        db.rollback()
-    finally:
-        db.close()
+try:
+    # 获取D列的配置
+    pipeline = db.query(FieldPipeline).filter(
+        FieldPipeline.file_type == 'DELIVERY',
+        FieldPipeline.target_col == 'D',
+        FieldPipeline.enabled == True
+    ).first()
 
-if __name__ == "__main__":
-    update_d_column_config()
+    if pipeline:
+        print(f"\n旧配置:")
+        print(f"  target_col: {pipeline.target_col}")
+        print(f"  target_header: {pipeline.target_header}")
+        print(f"  map_op: {pipeline.map_op}")
+        print(f"  source_cols: {pipeline.source_cols}")
+        print(f"  depends_on: {pipeline.depends_on}")
+
+        # 更新depends_on为C列（配達指定日）
+        new_depends_on = '["配達指定日"]'  # JSON字符串格式
+        pipeline.depends_on = new_depends_on
+
+        print(f"\n新配置:")
+        print(f"  target_col: {pipeline.target_col}")
+        print(f"  target_header: {pipeline.target_header}")
+        print(f"  map_op: {pipeline.map_op}")
+        print(f"  source_cols: {pipeline.source_cols}")
+        print(f"  depends_on: {pipeline.depends_on} (添加了对C列的依赖)")
+
+        # 提交更改
+        db.commit()
+
+        print("\n" + "=" * 80)
+        print("D列配置已更新，添加了对C列的依赖")
+        print("=" * 80)
+    else:
+        print("\n未找到D列的配置")
+
+except Exception as e:
+    db.rollback()
+    print(f"\n错误: {str(e)}")
+    import traceback
+    traceback.print_exc()
+finally:
+    db.close()

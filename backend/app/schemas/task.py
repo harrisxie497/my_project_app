@@ -85,6 +85,7 @@ class TaskDetailResponse(TaskListResponse):
 class TaskCreateResponse(BaseModel):
     task_id: str
     status: TaskStatus
+    message: Optional[str] = None
 
 # 分页任务列表响应
 class PaginatedTaskList(BaseModel):

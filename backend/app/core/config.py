@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # JWT配置
     SECRET_KEY: str = "wwRfvTJQMOGRHELw5QmmSULPwVg5zBEeR9CbyfMTVeY"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
     # DeepSeek AI配置
     DEEPSEEK_API_KEY: str = ""

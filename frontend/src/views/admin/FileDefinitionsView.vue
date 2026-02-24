@@ -100,16 +100,18 @@ export default {
   data() {
     return {
       fileDefinitions: [],
-      currentPage: 1,
+      currentPage:1,
       pageSize: 20,
       total: 0,
       dialogVisible: false,
+      isEditMode: false,
+      editId: null,
       formRef: null,
       form: {
         file_type: '',
         file_role: '',
         sheet_name: '',
-        header_row: 1,
+        header_row:1,
         data_start_row: 2,
         columns_json: '[]',
         enabled: true
@@ -206,6 +208,9 @@ export default {
         columns_json: JSON.stringify(row.columns_json),
         enabled: row.enabled
       };
+      // 设置编辑模式
+      this.isEditMode = true;
+      this.editId = row.id;
       // 打开对话框
       this.dialogVisible = true;
     },
@@ -240,12 +245,17 @@ export default {
     handleAdd() {
       // 重置表单
       this.form = {
-        file_ref: '',
-        file_name: '',
         file_type: '',
-        description: '',
+        file_role: '',
+        sheet_name: '',
+        header_row:1,
+        data_start_row: 2,
+        columns_json: '[]',
         enabled: true
       };
+      // 设置新增模式
+      this.isEditMode = false;
+      this.editId = null;
       if (this.formRef) {
         this.formRef.resetFields();
       }
@@ -267,14 +277,19 @@ export default {
           columns_json: JSON.parse(this.form.columns_json)
         };
         
-        // 调用API创建文件定义
-        await fileDefinitionsService.createFileDefinition(submitData);
+        // 根据模式调用不同的API
+        if (this.isEditMode) {
+          // 编辑模式：调用更新API
+          await fileDefinitionsService.updateFileDefinition(this.editId, submitData);
+          this.$message.success('文件定义更新成功');
+        } else {
+          // 新增模式：调用创建API
+          await fileDefinitionsService.createFileDefinition(submitData);
+          this.$message.success('文件定义创建成功');
+        }
         
         // 关闭对话框
         this.dialogVisible = false;
-        
-        // 显示成功消息
-        this.$message.success('文件定义创建成功');
         
         // 重新获取列表
         this.fetchFileDefinitions();
@@ -282,8 +297,8 @@ export default {
         if (error === 'cancel') {
           return;
         }
-        this.$message.error('文件定义创建失败');
-        console.error('Failed to create file definition:', error);
+        this.$message.error(this.isEditMode ? '文件定义更新失败' : '文件定义创建失败');
+        console.error('Failed to submit file definition:', error);
       }
     }
   }

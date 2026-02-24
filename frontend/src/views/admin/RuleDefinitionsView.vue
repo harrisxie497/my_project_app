@@ -38,7 +38,7 @@
     <!-- 新增配置对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      title="新增规则定义"
+      :title="isEdit ? '编辑规则定义' : '新增规则定义'"
       width="600px"
     >
       <el-form
@@ -99,6 +99,7 @@ export default {
       pageSize: 20,
       total: 0,
       dialogVisible: false,
+      isEdit: false,
       formRef: null,
       form: {
         rule_ref: '',
@@ -188,9 +189,11 @@ export default {
         rule_ref: row.rule_ref,
         rule_type: row.rule_type,
         executor_type: row.executor_type,
-        schema_json: JSON.stringify(row.schema_json),
+        schema_json: typeof row.schema_json === 'string' ? row.schema_json : JSON.stringify(row.schema_json),
         enabled: row.enabled
       };
+      // 设置为编辑模式
+      this.isEdit = true;
       // 打开对话框
       this.dialogVisible = true;
     },
@@ -231,6 +234,8 @@ export default {
         schema_json: '{}',
         enabled: true
       };
+      // 设置为新增模式
+      this.isEdit = false;
       if (this.formRef) {
         this.formRef.resetFields();
       }
@@ -252,14 +257,19 @@ export default {
           schema_json: JSON.parse(this.form.schema_json)
         };
         
-        // 调用API创建规则定义
-        await ruleDefinitionsService.createRuleDefinition(submitData);
+        // 根据是否是编辑模式来调用不同的API
+        if (this.isEdit) {
+          // 编辑模式：调用更新API
+          await ruleDefinitionsService.updateRuleDefinition(this.form.rule_ref, submitData);
+          this.$message.success('规则定义更新成功');
+        } else {
+          // 新增模式：调用创建API
+          await ruleDefinitionsService.createRuleDefinition(submitData);
+          this.$message.success('规则定义创建成功');
+        }
         
         // 关闭对话框
         this.dialogVisible = false;
-        
-        // 显示成功消息
-        this.$message.success('规则定义创建成功');
         
         // 重新获取列表
         this.fetchRuleDefinitions();
@@ -267,8 +277,8 @@ export default {
         if (error === 'cancel') {
           return;
         }
-        this.$message.error('规则定义创建失败');
-        console.error('Failed to create rule definition:', error);
+        this.$message.error(this.isEdit ? '规则定义更新失败' : '规则定义创建失败');
+        console.error('Failed to submit rule definition:', error);
       }
     }
   }

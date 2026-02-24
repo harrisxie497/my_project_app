@@ -48,21 +48,29 @@ class DeepSeekAIService:
                 messages = []
                 if system_prompt:
                     messages.append({"role": "system", "content": system_prompt})
+                    logger.debug(f"ret系统提示词：{system_prompt}")
                 messages.append({"role": "user", "content": prompt})
+                logger.debug(f"ret用户提示词：{prompt}")
                 
                 payload = {
                     "model": self.model,
                     "messages": messages,
-                    "temperature": 0.3,
-                    "max_tokens": 200
+                    "temperature": 0.7,
+                    "max_tokens": 8192
                 }
+                
+                logger.debug(f"发送的payload: {json.dumps(payload, ensure_ascii=False)}")
                 
                 response = requests.post(
                     f"{self.base_url}/chat/completions",
                     headers=headers,
                     json=payload,
-                    timeout=120
+                    timeout=300
                 )
+                
+                if response.status_code != 200:
+                    logger.error(f"DeepSeek API返回错误状态码：{response.status_code}")
+                    logger.error(f"响应内容：{response.text}")
                 
                 response.raise_for_status()
                 result = response.json()

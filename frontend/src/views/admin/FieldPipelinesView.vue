@@ -102,8 +102,8 @@
             rows="2"
           ></el-input>
         </el-form-item>
-        <el-form-item label="顺序" prop="order">
-          <el-input-number v-model="form.order" :min="1" :max="100" placeholder="请输入顺序"></el-input-number>
+        <el-form-item label="顺序" prop="order_num">
+          <el-input-number v-model="form.order_num" :min="1" :max="100" placeholder="请输入顺序"></el-input-number>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -138,7 +138,7 @@ export default {
         field_type: '',
         rule_ref: '[]',
         depends_on: '[]',
-        order: 10,
+        order_num: 10,
         enabled: true
       },
       rules: {
@@ -230,7 +230,7 @@ export default {
         field_type: row.field_type,
         rule_ref: JSON.stringify(row.rule_ref),
         depends_on: JSON.stringify(row.depends_on),
-        order: row.order,
+        order_num: row.order_num,
         enabled: row.enabled
       };
       // 打开对话框
@@ -275,7 +275,7 @@ export default {
         field_type: '',
         rule_ref: '[]',
         depends_on: '[]',
-        order: 10,
+        order_num: 10,
         enabled: true
       };
       if (this.formRef) {

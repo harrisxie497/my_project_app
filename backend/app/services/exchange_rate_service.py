@@ -102,3 +102,111 @@ class ExchangeRateService:
         except Exception as e:
             logger.error(f"获取汇率最终失败：{from_currency} -> {to_currency}，错误：{str(e)}", exc_info=True)
             raise
+    
+    def get_rates_batch(self, from_currencies: list, to_currency: str = "JPY") -> Dict[str, float]:
+        """
+        批量获取汇率（一次性获取多个货币的汇率）
+        
+        输入：
+            - from_currencies: 源货币代码列表（如：["USD", "EUR", "CNY"]）
+            - to_currency: 目标货币代码（默认：JPY）
+        
+        输出：
+            - 汇率字典 {货币代码: 汇率}
+        """
+        try:
+            logger.info(f"批量获取汇率：{from_currencies} -> {to_currency}")
+            
+            # 过滤掉不需要转换的货币（源货币和目标货币相同）
+            currencies_to_fetch = [c for c in from_currencies if c != to_currency]
+            
+            if not currencies_to_fetch:
+                logger.info(f"所有货币都是{to_currency}，无需获取汇率")
+                return {c: 1.0 for c in from_currencies}
+            
+            # 检查缓存
+            rates = {}
+            currencies_to_fetch_from_api = []
+            
+            for currency in currencies_to_fetch:
+                cache_key = f"{currency}_{to_currency}"
+                if cache_key in self.cache:
+                    cached_time, cached_rate = self.cache[cache_key]
+                    if datetime.now() - cached_time < self.cache_duration:
+                        logger.info(f"使用缓存汇率：{currency} -> {to_currency} = {cached_rate}")
+                        rates[currency] = cached_rate
+                    else:
+                        currencies_to_fetch_from_api.append(currency)
+                else:
+                    currencies_to_fetch_from_api.append(currency)
+            
+            # 如果所有汇率都在缓存中，直接返回
+            if not currencies_to_fetch_from_api:
+                logger.info(f"所有汇率都在缓存中，无需调用API")
+                return rates
+            
+            # 批量获取汇率
+            logger.info(f"需要从API获取{len(currencies_to_fetch_from_api)}个货币的汇率：{currencies_to_fetch_from_api}")
+            
+            for currency in currencies_to_fetch_from_api:
+                cache_key = f"{currency}_{to_currency}"
+                
+                # 使用重试机制获取汇率
+                for attempt in range(self.max_retries):
+                    try:
+                        logger.info(f"尝试获取汇率（第{attempt + 1}次）：{currency} -> {to_currency}")
+                        
+                        # 使用正确的API格式：{base_url}/{api_key}/latest/{base_currency}
+                        url = f"{self.base_url}/{self.api_key}/latest/{currency}"
+                        params = {
+                            "symbols": to_currency
+                        } if to_currency != "ALL" else {}
+
+                        response = requests.get(url, params=params, timeout=30)
+                        response.raise_for_status()
+
+                        data = response.json()
+                        rate = data["conversion_rates"][to_currency]
+                        
+                        self.cache[cache_key] = (datetime.now(), rate)
+                        rates[currency] = rate
+                        logger.info(f"获取汇率成功：{currency} -> {to_currency} = {rate}，已缓存")
+                        
+                        break
+                    
+                    except requests.exceptions.Timeout as e:
+                        logger.warning(f"获取汇率超时（第{attempt + 1}次）：{currency} -> {to_currency}，错误：{str(e)}")
+                        if attempt < self.max_retries - 1:
+                            logger.info(f"等待{self.retry_delay}秒后重试...")
+                            time.sleep(self.retry_delay)
+                        else:
+                            logger.error(f"获取汇率超时，已重试{self.max_retries}次：{currency} -> {to_currency}")
+                            raise
+                    except requests.exceptions.RequestException as e:
+                        logger.warning(f"获取汇率失败（第{attempt + 1}次）：{currency} -> {to_currency}，错误：{str(e)}")
+                        if attempt < self.max_retries - 1:
+                            logger.info(f"等待{self.retry_delay}秒后重试...")
+                            time.sleep(self.retry_delay)
+                        else:
+                            logger.error(f"获取汇率失败，已重试{self.max_retries}次：{currency} -> {to_currency}")
+                            raise
+                    except Exception as e:
+                        logger.error(f"获取汇率异常（第{attempt + 1}次）：{currency} -> {to_currency}，错误：{str(e)}", exc_info=True)
+                        if attempt < self.max_retries - 1:
+                            logger.info(f"等待{self.retry_delay}秒后重试...")
+                            time.sleep(self.retry_delay)
+                        else:
+                            logger.error(f"获取汇率异常，已重试{self.max_retries}次：{currency} -> {to_currency}")
+                            raise
+            
+            # 添加源货币和目标货币相同的汇率
+            for currency in from_currencies:
+                if currency == to_currency:
+                    rates[currency] = 1.0
+            
+            logger.info(f"批量获取汇率完成：{rates}")
+            return rates
+            
+        except Exception as e:
+            logger.error(f"批量获取汇率最终失败：{from_currencies} -> {to_currency}，错误：{str(e)}", exc_info=True)
+            raise

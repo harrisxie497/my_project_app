@@ -25,6 +25,7 @@ class Task(Base):
     unique_code = Column(String(100), nullable=False)
     flight_no = Column(String(20), nullable=True)
     declare_date = Column(String(10), nullable=True)  # YYYY-MM-DD
+    header_params = Column(String(1000), nullable=True)  # 表头参数JSON字符串
     status = Column(Enum(TaskStatus), default=TaskStatus.QUEUED, nullable=False)
     progress_stage = Column(String(50), nullable=True)
     progress_message = Column(String(255), nullable=True)

@@ -11,7 +11,7 @@ class FieldPipelineBase(BaseModel):
     field_type: str = Field(..., description="字段类型", example="FORMAT")
     rule_ref: List[str] = Field(..., description="规则引用", example=["fmt_date_yyyy_mm_dd"])
     depends_on: List[str] = Field(..., description="依赖列", example=[])
-    order: int = Field(..., description="执行顺序", ge=1)
+    order_num: int = Field(..., description="执行顺序", ge=1)
     enabled: bool = Field(True, description="启用状态")
 
 class FieldPipelineCreate(FieldPipelineBase):
@@ -26,11 +26,11 @@ class FieldPipelineUpdate(BaseModel):
     field_type: Optional[str] = Field(None, description="字段类型")
     rule_ref: Optional[List[str]] = Field(None, description="规则引用")
     depends_on: Optional[List[str]] = Field(None, description="依赖列")
-    order: Optional[int] = Field(None, description="执行顺序", ge=1)
+    order_num: Optional[int] = Field(None, description="执行顺序", ge=1)
     enabled: Optional[bool] = Field(None, description="启用状态")
 
 class FieldPipelineResponse(FieldPipelineBase):
-    id: str = Field(..., description="ID")
+    id: int = Field(..., description="ID")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: Optional[datetime] = Field(None, description="更新时间")
     
