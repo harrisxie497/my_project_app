@@ -72,6 +72,12 @@ const routes = [
         component: RuleDefinitionsView
       }
     ]
+  },
+  // 处理无效URL，跳转到登录页面
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/login',
+    meta: { requiresAuth: false }
   }
 ]
 

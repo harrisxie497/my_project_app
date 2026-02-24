@@ -38,6 +38,18 @@ instance.interceptors.response.use(
   },
   error => {
     console.error('API请求错误:', error);
+    
+    // 处理401未授权错误（登录过期或未登录）
+    if (error.response && error.response.status === 401) {
+      // 清除本地存储的认证信息
+      localStorage.removeItem('auth');
+      
+      // 跳转到登录页面
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    
     return Promise.reject(error);
   }
 );
