@@ -213,6 +213,9 @@ def read_excel_file(
                     
                     if col_idx is not None and col_idx < len(row):
                         cell_value = row[col_idx].value if row[col_idx] is not None else None
+                        # 如果值为None，返回空串
+                        if cell_value is None:
+                            cell_value = ""
                         if col_letter not in column_data:
                             column_data[col_letter] = []
                         column_data[col_letter].append(cell_value)
