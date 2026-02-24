@@ -318,8 +318,13 @@ class CustomsProcessor(BaseProcessor):
         if v_column_data and data_row_count:
             for i in range(min(data_row_count, len(v_column_data))):
                 currency_code = v_column_data[i]
-                if currency_code and str(currency_code).strip() and str(currency_code).strip().upper() != 'JPY':
-                    currency_codes.add(str(currency_code).strip().upper())
+                if currency_code and str(currency_code).strip():
+                    # 标准化货币代码：转换为大写，并将RMB转换为CNY
+                    normalized_code = str(currency_code).strip().upper()
+                    if normalized_code == 'RMB':
+                        normalized_code = 'CNY'
+                    if normalized_code != 'JPY':
+                        currency_codes.add(normalized_code)
         
         logger.info(f"收集到的货币类型: {list(currency_codes)}")
         
