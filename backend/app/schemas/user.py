@@ -11,6 +11,7 @@ class UserBase(BaseModel):
 # 创建用户请求
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6, max_length=50)
+    enabled: bool = Field(default=True)
 
 # 更新用户请求
 class UserUpdate(BaseModel):
