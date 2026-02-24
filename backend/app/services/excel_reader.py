@@ -23,8 +23,19 @@ def calculate_formulas_with_libreoffice(file_path: str) -> str:
         - RuntimeError: 当 LibreOffice 处理失败时抛出
     """
     try:
-        # 检查 LibreOffice 是否可用
-        result = subprocess.run(['which', 'soffice'], capture_output=True, text=True)
+        # 检查 LibreOffice 是否可用（支持 Windows 和 Linux）
+        import platform
+        system = platform.system()
+        
+        if system == 'Windows':
+            # Windows: 检查 soffice 是否在 PATH 中
+            result = subprocess.run(['where', 'soffice'], capture_output=True, text=True)
+            soffice_cmd = 'soffice'
+        else:
+            # Linux: 检查 soffice 是否在 PATH 中
+            result = subprocess.run(['which', 'soffice'], capture_output=True, text=True)
+            soffice_cmd = 'soffice'
+        
         if result.returncode != 0:
             logger.warning("LibreOffice 未安装，跳过公式计算")
             return file_path
@@ -35,7 +46,7 @@ def calculate_formulas_with_libreoffice(file_path: str) -> str:
         
         # 使用 LibreOffice 打开文件并保存（headless 模式）
         cmd = [
-            'soffice',
+            soffice_cmd,
             '--headless',
             '--convert-to', 'xlsx',
             '--outdir', temp_dir,
