@@ -318,8 +318,8 @@ class CustomsProcessor(BaseProcessor):
         if v_column_data and data_row_count:
             for i in range(min(data_row_count, len(v_column_data))):
                 currency_code = v_column_data[i]
-                if currency_code and str(currency_code).strip() and str(currency_code).strip() != 'JPY':
-                    currency_codes.add(str(currency_code).strip())
+                if currency_code and str(currency_code).strip() and str(currency_code).strip().upper() != 'JPY':
+                    currency_codes.add(str(currency_code).strip().upper())
         
         logger.info(f"收集到的货币类型: {list(currency_codes)}")
         
