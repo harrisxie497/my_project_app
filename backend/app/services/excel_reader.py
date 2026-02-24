@@ -223,13 +223,14 @@ def read_excel_file(
                         cell_raw = row_raw[col_idx]
                         cell_value = cell.value if cell is not None else None
                         
-                        # 如果值为None，检查是否是公式
+                        # 检查是否是公式单元格且计算值为None
                         if cell_value is None and cell_raw is not None and cell_raw.data_type == 'f':
                             # 这是一个公式，但计算值为None
-                            # 可能是公式未计算，或者公式计算结果确实为空
-                            # 我们可以记录这个情况，但仍然返回空串
-                            logger.debug(f"公式单元格计算值为空 - 列: {col_letter}, 行号: {row_idx}, 公式: {cell_raw.value if cell_raw.value else 'N/A'}")
-                            cell_value = ""
+                            # 说明公式未计算，抛出错误
+                            raise ValueError(
+                                f"检测到未计算的公式单元格 - 列: {col_letter}, 行号: {row_idx}。"
+                                f"请先在Excel中打开文件并保存，确保所有公式都已计算后再上传。"
+                            )
                         elif cell_value is None:
                             # 不是公式，值就是None，返回空串
                             cell_value = ""
