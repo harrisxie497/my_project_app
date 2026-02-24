@@ -459,19 +459,21 @@ async def create_task(
 @router.post("/{task_id}/run", response_model=GeneralResponse[TaskCreateResponse], tags=["tasks"])
 async def run_task(
     task_id: str,
+    background_tasks: BackgroundTasks,
     header_params: Optional[str] = Form(None),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
-    运行任务，执行文件处理
+    运行任务，执行文件处理（异步执行）
     
     :param task_id: 任务ID
+    :param background_tasks: 后台任务
     :param header_params: 表头参数JSON字符串（可选）
     :param current_user: 当前登录用户
     :param db: 数据库会话
     :return: 包含任务ID和状态的响应
-    :raises HTTPException: 当任务不存在、状态无效或处理失败时抛出错误
+    :raises HTTPException: 当任务不存在、状态无效时抛出错误
     """
     logger.info(f"运行任务请求 - 任务ID: {task_id}, 用户ID: {current_user.id}")
     logger.debug(f"运行任务输入 - 任务ID: {task_id}, header_params: {header_params}")
@@ -490,12 +492,12 @@ async def run_task(
     
     logger.debug(f"获取任务成功 - 任务ID: {task_id}, 状态: {task.status}, 文件类型: {task.file_type}")
     
-    # 验证任务状态
-    if task.status in [TaskStatus.SUCCESS, TaskStatus.FAILED]:
-        logger.warning(f"运行任务失败 - 任务已完成: {task_id}, 当前状态: {task.status}")
+    # 验证任务状态：允许成功或失败的任务重新运行
+    if task.status in [TaskStatus.PROCESSING]:
+        logger.warning(f"运行任务失败 - 任务正在处理中: {task_id}, 当前状态: {task.status}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot run a task that has already completed or failed"
+            detail="Task is already processing"
         )
     
     # 解析header_params参数
@@ -528,106 +530,20 @@ async def run_task(
     task.status = TaskStatus.PROCESSING
     task.started_at = datetime.utcnow()
     task.progress_stage = "processing"
-    task.progress_message = "Task is running"
+    task.progress_message = "Task is running, please wait approximately 3 minutes"
     db.commit()
     
     logger.info(f"任务开始处理 - 任务ID: {task_id}, 文件类型: {task.file_type}")
     logger.debug(f"任务状态更新 - 任务ID: {task_id}, 状态: {task.status}, 开始时间: {task.started_at}")
     
-    try:
-            # 获取任务文件存储目录
-            task_dir = os.path.join(settings.TASKS_STORAGE_PATH, task_id)
-            logger.debug(f"获取任务文件存储目录 - 任务ID: {task_id}, 目录: {task_dir}")
-            
-            # 根据文件类型选择不同的处理器
-            if task.file_type == FileType.CUSTOMS:
-                from app.services.task_executor import TaskExecutor
-                task_executor = TaskExecutor(
-                    db_session=db,
-                    task_id=task_id,
-                    file_type='CUSTOMS',
-                    header_params=header_params_dict
-                )
-                logger.info(f"使用TaskExecutor处理清关文件 - 任务ID: {task_id}")
-                logger.debug(f"创建TaskExecutor - 任务ID: {task_id}, header_params: {header_params_dict}")
-            elif task.file_type == FileType.DELIVERY:
-                from app.services.task_executor import TaskExecutor
-                task_executor = TaskExecutor(
-                    db_session=db,
-                    task_id=task_id,
-                    file_type='DELIVERY',
-                    header_params=header_params_dict
-                )
-                logger.info(f"使用TaskExecutor处理派送文件 - 任务ID: {task_id}")
-                logger.debug(f"创建TaskExecutor - 任务ID: {task_id}, header_params: {header_params_dict}")
-            else:
-                from app.services.file_processor import FileProcessor
-                processor = FileProcessor(task_dir, task.file_type.value, db)
-                logger.info(f"使用通用文件处理器 - 任务ID: {task_id}, 类型: {task.file_type}")
-                logger.debug(f"创建通用文件处理器 - 任务ID: {task_id}, 文件类型: {task.file_type}")
-            
-            # 执行文件处理
-            logger.debug(f"开始执行文件处理 - 任务ID: {task_id}")
-            if task.file_type == FileType.CUSTOMS:
-                original_file_path = os.path.join(task_dir, "original.xlsx")
-                result_file_path = os.path.join(task_dir, f"result_{task.id}.xlsx")
-                stats = task_executor.execute(original_file_path, result_file_path)
-            elif task.file_type == FileType.DELIVERY:
-                original_file_path = os.path.join(task_dir, "original.xlsx")
-                result_file_path = os.path.join(task_dir, f"result_{task.id}.xlsx")
-                stats = task_executor.execute(original_file_path, result_file_path)
-            else:
-                stats = processor.process()
-            logger.info(f"文件处理完成 - 任务ID: {task_id}, 统计信息: {stats}")
-            logger.debug(f"文件处理结果 - 任务ID: {task_id}, 统计信息: {stats}")
-            
-            # 更新任务的文件信息
-            task.files.update({
-                "result": {
-                    "file_name": f"result_{task.id}.xlsx",
-                    "download_url": f"{settings.API_V1_STR}/tasks/{task_id}/files/result"
-                },
-                "diff": {
-                    "file_name": f"diff_{task.id}.xlsx",
-                    "download_url": f"{settings.API_V1_STR}/tasks/{task_id}/files/diff"
-                }
-            })
-            logger.debug(f"更新任务文件信息 - 任务ID: {task_id}, 文件信息: {task.files}")
-            
-            # 更新任务统计信息
-            task.stats = stats
-            logger.debug(f"更新任务统计信息 - 任务ID: {task_id}, 统计信息: {stats}")
-            
-            # 更新任务状态为成功
-            task.status = TaskStatus.SUCCESS
-            task.finished_at = datetime.utcnow()
-            task.progress_stage = "done"
-            task.progress_message = "Task completed successfully"
-            
-            db.commit()
-            
-            logger.info(f"任务执行成功 - 任务ID: {task_id}, 最终状态: {task.status}")
-            logger.debug(f"任务最终状态 - 任务ID: {task_id}, 状态: {task.status}, 完成时间: {task.finished_at}")
-        
-    except Exception as e:
-        # 更新任务状态为失败
-        task.status = TaskStatus.FAILED
-        task.finished_at = datetime.utcnow()
-        task.progress_stage = "failed"
-        task.progress_message = f"Task failed: {str(e)}"
-        db.commit()
-        
-        logger.error(f"任务执行失败 - 任务ID: {task_id}, 错误: {str(e)}", exc_info=True)
-        
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Task failed: {str(e)}"
-        )
-    
+    # 添加后台任务（文件验证和处理都在后台执行）
+    background_tasks.add_task(execute_task_background_with_validation, task_id, task.file_type.value, db)
+
     return GeneralResponse(
         data=TaskCreateResponse(
             task_id=task.id,
-            status=task.status
+            status=task.status,
+            message="Task has been started and will be processed in the background"
         )
     )
 
