@@ -174,7 +174,7 @@ const resetFormRules = reactive({
 // 加载用户列表
 const loadUsers = async () => {
   try {
-    const response = await userService.getUsers();
+    const response = await userService.adminGetUsers();
     users.value = response.data.items;
   } catch (error) {
     console.error('获取用户列表错误:', error);
@@ -192,7 +192,7 @@ const handleAddUser = async () => {
   addFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        const response = await userService.createUser(addForm);
+        const response = await userService.adminCreateUser(addForm);
         addDialogVisible.value = false;
         // 重置表单
         addFormRef.value.resetFields();
@@ -259,7 +259,7 @@ const deleteUser = async (row) => {
 const toggleUserEnabled = async (row, newEnabled) => {
   try {
     // 使用$event参数获取新的状态，而不是依赖row.enabled
-    const response = await (newEnabled ? userService.enableUser(row.id) : userService.disableUser(row.id));
+    const response = await userService.adminEnableDisableUser(row.id, newEnabled);
     
     // 直接使用response数据，因为axios拦截器已经处理了response.data
     ElMessage.success(newEnabled ? '用户启用成功' : '用户禁用成功');
