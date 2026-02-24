@@ -12,6 +12,7 @@ router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 
 # 包含用户路由
 router.include_router(users.router, prefix="/users", tags=["users"])
+router.include_router(users.admin_router, prefix="/admin/users", tags=["admin-users"])
 
 # 包含操作日志路由
 router.include_router(operation_logs.router, prefix="/operation-logs", tags=["operation-logs"])
