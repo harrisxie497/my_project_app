@@ -1,4 +1,4 @@
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Union
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from datetime import datetime
@@ -7,22 +7,42 @@ import json
 
 logger = logging.getLogger(__name__)
 
-def load_excel_config(file_type: str, connection) -> Dict[str, Any]:
+def load_excel_config(file_type: str, connection: Union[Any, None]) -> Dict[str, Any]:
     """
     从数据库加载Excel配置
     
     输入：
         - file_type: 文件类型（如 'CUSTOMS'）
-        - connection: 数据库连接对象
+        - connection: 数据库连接对象（SQLAlchemy Session 或 pymysql 连接）
     
     输出：
         - 配置字典，包含 default_font, merge_ranges, style_rules
     """
     try:
-        cursor = connection.cursor()
-        sql = "SELECT default_font, merge_ranges, style_rules FROM excel_configs WHERE file_type = %s AND is_active = 1"
-        cursor.execute(sql, (file_type,))
-        result = cursor.fetchone()
+        result = None
+        
+        # 判断连接类型并执行查询
+        if connection is None:
+            logger.warning(f"数据库连接为空 - 文件类型: {file_type}")
+            return {}
+        
+        # 检查是否是 SQLAlchemy Session 对象
+        if hasattr(connection, 'query'):
+            # 使用 SQLAlchemy Session
+            from app.models.excel_config import ExcelConfig
+            result = connection.query(ExcelConfig).filter(
+                ExcelConfig.file_type == file_type,
+                ExcelConfig.is_active == True
+            ).first()
+            
+            if result:
+                result = (result.default_font, result.merge_ranges, result.style_rules)
+        else:
+            # 使用 pymysql 连接
+            cursor = connection.cursor()
+            sql = "SELECT default_font, merge_ranges, style_rules FROM excel_configs WHERE file_type = %s AND is_active = 1"
+            cursor.execute(sql, (file_type,))
+            result = cursor.fetchone()
         
         if result:
             config = {
