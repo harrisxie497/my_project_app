@@ -3,6 +3,7 @@ from openpyxl import load_workbook
 import logging
 import pymysql
 from urllib.parse import urlparse
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -99,15 +100,21 @@ def read_excel_file(
             finally:
                 connection.close()
         
-        workbook = load_workbook(file_path, data_only=True)
+        # 第一次读取：使用 data_only=True 获取公式的计算值
+        workbook_calc = load_workbook(file_path, data_only=True)
+        
+        # 第二次读取：使用 data_only=False 获取公式的原始信息（用于判断是否是公式）
+        workbook_raw = load_workbook(file_path, data_only=False)
         
         if sheet_name:
-            if sheet_name not in workbook.sheetnames:
-                logger.error(f"工作表不存在 - 期望: {sheet_name}, 实际: {workbook.sheetnames}")
+            if sheet_name not in workbook_calc.sheetnames:
+                logger.error(f"工作表不存在 - 期望: {sheet_name}, 实际: {workbook_calc.sheetnames}")
                 raise ValueError(f"Sheet '{sheet_name}' not found in workbook")
-            worksheet = workbook[sheet_name]
+            worksheet = workbook_calc[sheet_name]
+            worksheet_raw = workbook_raw[sheet_name]
         else:
-            worksheet = workbook.active
+            worksheet = workbook_calc.active
+            worksheet_raw = workbook_raw.active
         
         logger.debug(f"选择工作表 - 工作表名称: {worksheet.title}")
         
@@ -119,7 +126,7 @@ def read_excel_file(
         logger.debug(f"初始化变量 - columns_config: {len(columns_config)}, column_data: {column_data}")
         
         # 读取第一行（特殊行）
-        for row_idx, row in enumerate(worksheet.iter_rows(values_only=False), start=1):
+        for row_idx, (row, row_raw) in enumerate(zip(worksheet.iter_rows(values_only=False), worksheet_raw.iter_rows(values_only=False)), start=1):
             # 读取表头行（如果header_row == 1，则第一行就是表头行）
             if row_idx == header_row:
                 header_row_data = [cell.value if cell is not None else "" for cell in row]
@@ -212,10 +219,21 @@ def read_excel_file(
                     col_idx = column_map.get(col_letter)
                     
                     if col_idx is not None and col_idx < len(row):
-                        cell_value = row[col_idx].value if row[col_idx] is not None else None
-                        # 如果值为None，返回空串
-                        if cell_value is None:
+                        cell = row[col_idx]
+                        cell_raw = row_raw[col_idx]
+                        cell_value = cell.value if cell is not None else None
+                        
+                        # 如果值为None，检查是否是公式
+                        if cell_value is None and cell_raw is not None and cell_raw.data_type == 'f':
+                            # 这是一个公式，但计算值为None
+                            # 可能是公式未计算，或者公式计算结果确实为空
+                            # 我们可以记录这个情况，但仍然返回空串
+                            logger.debug(f"公式单元格计算值为空 - 列: {col_letter}, 行号: {row_idx}, 公式: {cell_raw.value if cell_raw.value else 'N/A'}")
                             cell_value = ""
+                        elif cell_value is None:
+                            # 不是公式，值就是None，返回空串
+                            cell_value = ""
+                        
                         if col_letter not in column_data:
                             column_data[col_letter] = []
                         column_data[col_letter].append(cell_value)
