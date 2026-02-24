@@ -5,14 +5,10 @@ FROM python:3.11
 # 设置工作目录
 WORKDIR /app
 
-# 安装系统依赖（包括 LibreOffice）
+# 安装系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
-    libreoffice \
-    libreoffice-writer \
-    libreoffice-calc \
-    libreoffice-impress \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制 requirements.txt
