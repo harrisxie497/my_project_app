@@ -74,9 +74,20 @@ def process_field_v2(
         regex = rule_params.get('regex', '')
         required = rule_params.get('required', False)
         remove_dash = rule_params.get('remove_dash', False)
+        remove_leading_trailing_spaces = rule_params.get('remove_leading_trailing_spaces', False)
+        remove_middle_spaces = rule_params.get('remove_middle_spaces', False)
+        add_prefix_zero = rule_params.get('add_prefix_zero', False)
         source_col = source_cols[0] if source_cols else None
         source_value = row.get(source_col) if source_col else None
-        return field_handlers.normalize_copy_then_regex(source_value, regex, required, remove_dash)
+        return field_handlers.normalize_copy_then_regex(
+            source_value, 
+            regex, 
+            required, 
+            remove_dash, 
+            remove_leading_trailing_spaces, 
+            remove_middle_spaces,
+            add_prefix_zero
+        )
     
     elif rule_ref_key == 'policy_copy_optional_decimal':
         # normalize.copy_optional_decimal

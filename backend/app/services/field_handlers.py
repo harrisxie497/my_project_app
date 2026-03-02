@@ -336,10 +336,11 @@ def normalize_copy_then_regex(
     required: bool = False,
     remove_dash: bool = False,
     remove_leading_trailing_spaces: bool = False,
-    remove_middle_spaces: bool = False
+    remove_middle_spaces: bool = False,
+    add_prefix_zero: bool = False
 ) -> Any:
     """
-    复制源值→可选去"-"→可选去前后空格→可选去中间空格→按正则校验（可配置是否必填）
+    复制源值→可选去"-"→可选去前后空格→可选去中间空格→可选添加前缀0→按正则校验（可配置是否必填）
     
     输入：
         - source_value: 源值
@@ -348,6 +349,7 @@ def normalize_copy_then_regex(
         - remove_dash: 是否移除连接符"-"
         - remove_leading_trailing_spaces: 是否去除前后空格
         - remove_middle_spaces: 是否去除中间空格
+        - add_prefix_zero: 是否添加前缀0（日本电话号码）
     
     输出：
         - 处理后的值
@@ -373,6 +375,11 @@ def normalize_copy_then_regex(
         # 去除中间空格
         if remove_middle_spaces:
             source_value = source_value.replace(' ', '')
+        
+        # 添加前缀0（日本电话号码）
+        if add_prefix_zero:
+            if source_value and not source_value.startswith('0'):
+                source_value = '0' + source_value
         
         # 验证regex
         if not re.match(regex, source_value):
