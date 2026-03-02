@@ -71,12 +71,19 @@
           <el-input-number v-model="form.data_start_row" :min="1" :max="100" placeholder="请输入数据起始行"></el-input-number>
         </el-form-item>
         <el-form-item label="列配置" prop="columns_json">
-          <el-input
-            v-model="form.columns_json"
-            type="textarea"
-            placeholder='请输入列配置JSON格式，例如：[{"col": "A", "header": "列A"}]'
-            rows="3"
-          ></el-input>
+          <div class="json-editor-wrapper">
+            <el-input
+              v-model="form.columns_json"
+              type="textarea"
+              placeholder='请输入列配置JSON格式，例如：[{"col": "A", "header": "列A"}]'
+              rows="8"
+              @blur="formatJson"
+            ></el-input>
+            <div class="json-actions">
+              <el-button size="small" @click="formatJson">格式化 JSON</el-button>
+              <el-button size="small" @click="validateJson">验证 JSON</el-button>
+            </div>
+          </div>
         </el-form-item>
         <el-form-item label="状态">
           <el-switch v-model="form.enabled"></el-switch>
@@ -240,6 +247,33 @@ export default {
     },
     
     /**
+     * 格式化 JSON
+     */
+    formatJson() {
+      try {
+        const parsed = JSON.parse(this.form.columns_json);
+        this.form.columns_json = JSON.stringify(parsed, null, 2);
+        this.$message.success('JSON 格式化成功');
+      } catch (error) {
+        this.$message.error('JSON 格式错误，无法格式化');
+      }
+    },
+    
+    /**
+     * 验证 JSON
+     */
+    validateJson() {
+      try {
+        JSON.parse(this.form.columns_json);
+        this.$message.success('JSON 格式正确');
+        return true;
+      } catch (error) {
+        this.$message.error('JSON 格式错误：' + error.message);
+        return false;
+      }
+    },
+    
+    /**
      * 处理新增配置
      */
     handleAdd() {
@@ -324,5 +358,15 @@ export default {
 .pagination-container {
   text-align: right;
   margin-top: 20px;
+}
+
+.json-editor-wrapper {
+  width: 100%;
+}
+
+.json-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
 }
 </style>

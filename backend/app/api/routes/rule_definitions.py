@@ -17,6 +17,7 @@ router = APIRouter(redirect_slashes=False)
 # 获取规则定义列表
 @router.get("", response_model=GeneralResponse[PaginatedRuleDefinitionList], tags=["rule-definitions"])
 async def get_rule_definitions(
+    rule_ref: Optional[str] = Query(None, description="规则标识过滤"),
     rule_type: Optional[str] = Query(None, description="规则类型过滤"),
     executor_type: Optional[str] = Query(None, description="执行器类型过滤"),
     enabled: Optional[bool] = Query(None, description="启用状态过滤"),
@@ -29,6 +30,8 @@ async def get_rule_definitions(
     query = db.query(RuleDefinition)
     
     # 应用过滤条件
+    if rule_ref:
+        query = query.filter(RuleDefinition.rule_ref.like(f'%{rule_ref}%'))
     if rule_type:
         query = query.filter(RuleDefinition.rule_type == rule_type)
     if executor_type:

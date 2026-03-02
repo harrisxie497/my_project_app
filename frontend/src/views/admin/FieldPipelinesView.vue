@@ -145,12 +145,19 @@
           <el-input-number v-model="form.order_num" :min="1" :max="100" placeholder="请输入顺序"></el-input-number>
         </el-form-item>
         <el-form-item label="规则参数" prop="rule_params_json">
-          <el-input
-            v-model="form.rule_params_json"
-            type="textarea"
-            placeholder='请输入规则参数JSON，例如：{"policy_copy_regex": {"regex": "^\\d{9,11}$", "add_prefix_zero": true}}'
-            rows="6"
-          ></el-input>
+          <div class="json-editor-wrapper">
+            <el-input
+              v-model="form.rule_params_json"
+              type="textarea"
+              placeholder='请输入规则参数JSON，例如：{"policy_copy_regex": {"regex": "^\\d{9,11}$", "add_prefix_zero": true}}'
+              rows="8"
+              @blur="formatJson"
+            ></el-input>
+            <div class="json-actions">
+              <el-button size="small" @click="formatJson">格式化 JSON</el-button>
+              <el-button size="small" @click="validateJson">验证 JSON</el-button>
+            </div>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -254,6 +261,33 @@ export default {
       } catch (error) {
         this.$message.error('获取字段映射列表失败');
         console.error('Failed to fetch field pipelines:', error);
+      }
+    },
+    
+    /**
+     * 格式化 JSON
+     */
+    formatJson() {
+      try {
+        const parsed = JSON.parse(this.form.rule_params_json);
+        this.form.rule_params_json = JSON.stringify(parsed, null, 2);
+        this.$message.success('JSON 格式化成功');
+      } catch (error) {
+        this.$message.error('JSON 格式错误，无法格式化');
+      }
+    },
+    
+    /**
+     * 验证 JSON
+     */
+    validateJson() {
+      try {
+        JSON.parse(this.form.rule_params_json);
+        this.$message.success('JSON 格式正确');
+        return true;
+      } catch (error) {
+        this.$message.error('JSON 格式错误：' + error.message);
+        return false;
       }
     },
     
@@ -467,5 +501,15 @@ export default {
 .pagination-container {
   text-align: right;
   margin-top: 20px;
+}
+
+.json-editor-wrapper {
+  width: 100%;
+}
+
+.json-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
 }
 </style>

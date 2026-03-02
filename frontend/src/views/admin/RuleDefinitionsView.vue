@@ -4,6 +4,41 @@
       <h2>规则定义管理</h2>
       <el-button type="primary" @click="handleAdd">新增配置</el-button>
     </div>
+    
+    <!-- 查询表单 -->
+    <div class="search-container">
+      <el-form :inline="true" :model="searchForm" class="search-form">
+        <el-form-item label="规则标识">
+          <el-input v-model="searchForm.rule_ref" placeholder="请输入规则标识" clearable style="width: 200px"></el-input>
+        </el-form-item>
+        <el-form-item label="规则类型">
+          <el-select v-model="searchForm.rule_type" placeholder="全部" clearable style="width: 120px">
+            <el-option label="格式化" value="FORMAT"></el-option>
+            <el-option label="计算" value="CALC"></el-option>
+            <el-option label="规则修复" value="RULE_FIX"></el-option>
+            <el-option label="常量" value="CONST"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="执行器类型">
+          <el-select v-model="searchForm.executor_type" placeholder="全部" clearable style="width: 120px">
+            <el-option label="程序" value="program"></el-option>
+            <el-option label="AI" value="ai"></el-option>
+            <el-option label="Web" value="web"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="searchForm.enabled" placeholder="全部" clearable style="width: 100px">
+            <el-option label="启用" :value="true"></el-option>
+            <el-option label="禁用" :value="false"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </div>
+    
     <div class="table-container">
       <el-table :data="ruleDefinitions" stripe style="width: 100%">
         <el-table-column prop="rule_ref" label="规则标识" width="200"></el-table-column>
@@ -66,12 +101,19 @@
           </el-select>
         </el-form-item>
         <el-form-item label="规则配置" prop="schema_json">
-          <el-input
-            v-model="form.schema_json"
-            type="textarea"
-            placeholder="请输入规则配置JSON"
-            rows="4"
-          ></el-input>
+          <div class="json-editor-wrapper">
+            <el-input
+              v-model="form.schema_json"
+              type="textarea"
+              placeholder="请输入规则配置JSON"
+              rows="8"
+              @blur="formatJson"
+            ></el-input>
+            <div class="json-actions">
+              <el-button size="small" @click="formatJson">格式化 JSON</el-button>
+              <el-button size="small" @click="validateJson">验证 JSON</el-button>
+            </div>
+          </div>
         </el-form-item>
         <el-form-item label="状态">
           <el-switch v-model="form.enabled"></el-switch>
@@ -101,6 +143,12 @@ export default {
       dialogVisible: false,
       isEdit: false,
       formRef: null,
+      searchForm: {
+        rule_ref: '',
+        rule_type: '',
+        executor_type: '',
+        enabled: null
+      },
       form: {
         rule_ref: '',
         rule_type: '',
@@ -133,16 +181,54 @@ export default {
      */
     async fetchRuleDefinitions() {
       try {
-        const response = await ruleDefinitionsService.getRuleDefinitions({
+        const params = {
           page: this.currentPage,
           page_size: this.pageSize
-        });
+        };
+        
+        // 添加查询条件
+        if (this.searchForm.rule_ref) {
+          params.rule_ref = this.searchForm.rule_ref;
+        }
+        if (this.searchForm.rule_type) {
+          params.rule_type = this.searchForm.rule_type;
+        }
+        if (this.searchForm.executor_type) {
+          params.executor_type = this.searchForm.executor_type;
+        }
+        if (this.searchForm.enabled !== null && this.searchForm.enabled !== '') {
+          params.enabled = this.searchForm.enabled;
+        }
+        
+        const response = await ruleDefinitionsService.getRuleDefinitions(params);
         this.ruleDefinitions = response.data.items;
         this.total = response.data.total;
       } catch (error) {
         this.$message.error('获取规则定义列表失败');
         console.error('Failed to fetch rule definitions:', error);
       }
+    },
+    
+    /**
+     * 处理查询
+     */
+    handleSearch() {
+      this.currentPage = 1;
+      this.fetchRuleDefinitions();
+    },
+    
+    /**
+     * 处理重置
+     */
+    handleReset() {
+      this.searchForm = {
+        rule_ref: '',
+        rule_type: '',
+        executor_type: '',
+        enabled: null
+      };
+      this.currentPage = 1;
+      this.fetchRuleDefinitions();
     },
     
     /**
@@ -162,6 +248,33 @@ export default {
     handleCurrentChange(val) {
       this.currentPage = val;
       this.fetchRuleDefinitions();
+    },
+    
+    /**
+     * 格式化 JSON
+     */
+    formatJson() {
+      try {
+        const parsed = JSON.parse(this.form.schema_json);
+        this.form.schema_json = JSON.stringify(parsed, null, 2);
+        this.$message.success('JSON 格式化成功');
+      } catch (error) {
+        this.$message.error('JSON 格式错误，无法格式化');
+      }
+    },
+    
+    /**
+     * 验证 JSON
+     */
+    validateJson() {
+      try {
+        JSON.parse(this.form.schema_json);
+        this.$message.success('JSON 格式正确');
+        return true;
+      } catch (error) {
+        this.$message.error('JSON 格式错误：' + error.message);
+        return false;
+      }
     },
     
     /**
@@ -304,5 +417,15 @@ export default {
 .pagination-container {
   text-align: right;
   margin-top: 20px;
+}
+
+.json-editor-wrapper {
+  width: 100%;
+}
+
+.json-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
 }
 </style>
