@@ -40,8 +40,8 @@
     <!-- 新增配置对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      title="新增字段映射"
-      width="500px"
+      :title="isEdit ? '编辑字段映射' : '新增字段映射'"
+      width="600px"
     >
       <el-form
         :model="form"
@@ -105,6 +105,14 @@
         <el-form-item label="顺序" prop="order_num">
           <el-input-number v-model="form.order_num" :min="1" :max="100" placeholder="请输入顺序"></el-input-number>
         </el-form-item>
+        <el-form-item label="规则参数" prop="rule_params_json">
+          <el-input
+            v-model="form.rule_params_json"
+            type="textarea"
+            placeholder='请输入规则参数JSON，例如：{"policy_copy_regex": {"regex": "^\\d{9,11}$", "add_prefix_zero": true}}'
+            rows="6"
+          ></el-input>
+        </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -128,6 +136,8 @@ export default {
       pageSize: 20,
       total: 0,
       dialogVisible: false,
+      isEdit: false,
+      currentEditId: null,
       formRef: null,
       form: {
         file_type: '',
@@ -139,6 +149,7 @@ export default {
         rule_ref: '[]',
         depends_on: '[]',
         order_num: 10,
+        rule_params_json: '{}',
         enabled: true
       },
       rules: {
@@ -231,8 +242,12 @@ export default {
         rule_ref: JSON.stringify(row.rule_ref),
         depends_on: JSON.stringify(row.depends_on),
         order_num: row.order_num,
+        rule_params_json: JSON.stringify(row.rule_params_json || {}),
         enabled: row.enabled
       };
+      // 设置编辑状态
+      this.isEdit = true;
+      this.currentEditId = row.id;
       // 打开对话框
       this.dialogVisible = true;
     },
@@ -276,11 +291,15 @@ export default {
         rule_ref: '[]',
         depends_on: '[]',
         order_num: 10,
+        rule_params_json: '{}',
         enabled: true
       };
       if (this.formRef) {
         this.formRef.resetFields();
       }
+      // 设置新增状态
+      this.isEdit = false;
+      this.currentEditId = null;
       // 打开对话框
       this.dialogVisible = true;
     },
@@ -298,17 +317,23 @@ export default {
           ...this.form,
           source_cols: JSON.parse(this.form.source_cols),
           rule_ref: JSON.parse(this.form.rule_ref),
-          depends_on: JSON.parse(this.form.depends_on)
+          depends_on: JSON.parse(this.form.depends_on),
+          rule_params_json: JSON.parse(this.form.rule_params_json)
         };
         
-        // 调用API创建字段映射
-        await fieldPipelinesService.createFieldPipeline(submitData);
+        // 根据是编辑还是新增，调用不同的API
+        if (this.isEdit) {
+          // 编辑模式
+          await fieldPipelinesService.updateFieldPipeline(this.currentEditId, submitData);
+          this.$message.success('字段映射更新成功');
+        } else {
+          // 新增模式
+          await fieldPipelinesService.createFieldPipeline(submitData);
+          this.$message.success('字段映射创建成功');
+        }
         
         // 关闭对话框
         this.dialogVisible = false;
-        
-        // 显示成功消息
-        this.$message.success('字段映射创建成功');
         
         // 重新获取列表
         this.fetchFieldPipelines();
@@ -316,8 +341,8 @@ export default {
         if (error === 'cancel') {
           return;
         }
-        this.$message.error('字段映射创建失败');
-        console.error('Failed to create field pipeline:', error);
+        this.$message.error(this.isEdit ? '字段映射更新失败' : '字段映射创建失败');
+        console.error('Failed to submit field pipeline:', error);
       }
     }
   }
