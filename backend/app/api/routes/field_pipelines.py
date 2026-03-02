@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from uuid import uuid4
 from typing import Optional
 from app.core.auth import get_current_active_user
@@ -20,6 +21,7 @@ router = APIRouter(redirect_slashes=False)
 async def get_field_pipelines(
     file_type: Optional[str] = Query(None, description="文件类型过滤"),
     target_col: Optional[str] = Query(None, description="目标列过滤"),
+    rule_ref: Optional[str] = Query(None, description="规则引用过滤"),
     field_type: Optional[str] = Query(None, description="字段类型过滤"),
     enabled: Optional[bool] = Query(None, description="启用状态过滤"),
     page: int = Query(1, ge=1, description="页码"),
@@ -35,6 +37,11 @@ async def get_field_pipelines(
         query = query.filter(FieldPipeline.file_type == file_type)
     if target_col:
         query = query.filter(FieldPipeline.target_col == target_col)
+    if rule_ref:
+        # rule_ref 是 JSON 数组，需要查找数组中包含指定值的记录
+        # 使用 json_extract 函数来查询 JSON 数组
+        from sqlalchemy import func
+        query = query.filter(func.json_extract(FieldPipeline.rule_ref, '$[*]').like(f'%"{rule_ref}"%'))
     if field_type:
         query = query.filter(FieldPipeline.field_type == field_type)
     if enabled is not None:

@@ -4,6 +4,45 @@
       <h2>字段映射管理</h2>
       <el-button type="primary" @click="handleAdd">新增配置</el-button>
     </div>
+    
+    <!-- 查询表单 -->
+    <div class="search-container">
+      <el-form :inline="true" :model="searchForm" class="search-form">
+        <el-form-item label="文件类型">
+          <el-select v-model="searchForm.file_type" placeholder="全部" clearable style="width: 120px">
+            <el-option label="清关文件" value="customs"></el-option>
+            <el-option label="派送文件" value="delivery"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="目标列">
+          <el-input v-model="searchForm.target_col" placeholder="请输入列名" clearable style="width: 120px"></el-input>
+        </el-form-item>
+        <el-form-item label="规则引用">
+          <el-input v-model="searchForm.rule_ref" placeholder="请输入规则引用" clearable style="width: 200px"></el-input>
+        </el-form-item>
+        <el-form-item label="字段类型">
+          <el-select v-model="searchForm.field_type" placeholder="全部" clearable style="width: 120px">
+            <el-option label="复制" value="COPY"></el-option>
+            <el-option label="格式化" value="FORMAT"></el-option>
+            <el-option label="默认值" value="DEFAULT"></el-option>
+            <el-option label="计算" value="CALC"></el-option>
+            <el-option label="规则修复" value="RULE_FIX"></el-option>
+            <el-option label="常量" value="CONST"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="searchForm.enabled" placeholder="全部" clearable style="width: 100px">
+            <el-option label="启用" :value="true"></el-option>
+            <el-option label="禁用" :value="false"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </div>
+    
     <div class="table-container">
       <el-table :data="fieldPipelines" stripe style="width: 100%">
         <el-table-column prop="file_type" label="文件类型" width="100"></el-table-column>
@@ -139,6 +178,13 @@ export default {
       isEdit: false,
       currentEditId: null,
       formRef: null,
+      searchForm: {
+        file_type: '',
+        target_col: '',
+        rule_ref: '',
+        field_type: '',
+        enabled: null
+      },
       form: {
         file_type: '',
         target_col: '',
@@ -180,16 +226,58 @@ export default {
      */
     async fetchFieldPipelines() {
       try {
-        const response = await fieldPipelinesService.getFieldPipelines({
+        const params = {
           page: this.currentPage,
           page_size: this.pageSize
-        });
+        };
+        
+        // 添加查询条件
+        if (this.searchForm.file_type) {
+          params.file_type = this.searchForm.file_type;
+        }
+        if (this.searchForm.target_col) {
+          params.target_col = this.searchForm.target_col;
+        }
+        if (this.searchForm.rule_ref) {
+          params.rule_ref = this.searchForm.rule_ref;
+        }
+        if (this.searchForm.field_type) {
+          params.field_type = this.searchForm.field_type;
+        }
+        if (this.searchForm.enabled !== null && this.searchForm.enabled !== '') {
+          params.enabled = this.searchForm.enabled;
+        }
+        
+        const response = await fieldPipelinesService.getFieldPipelines(params);
         this.fieldPipelines = response.data.items;
         this.total = response.data.total;
       } catch (error) {
         this.$message.error('获取字段映射列表失败');
         console.error('Failed to fetch field pipelines:', error);
       }
+    },
+    
+    /**
+     * 处理查询
+     */
+    handleSearch() {
+      this.currentPage = 1;
+      this.fetchFieldPipelines();
+    },
+    
+    /**
+     * 处理重置
+     */
+    handleReset() {
+      this.searchForm = {
+        file_type: '',
+        target_col: '',
+        rule_ref: '',
+        field_type: '',
+        enabled: null
+      };
+      this.currentPage = 1;
+      this.fetchFieldPipelines();
     },
     
     /**
@@ -359,6 +447,17 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.search-container {
+  margin-bottom: 20px;
+  padding: 20px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+}
+
+.search-form {
+  margin: 0;
 }
 
 .table-container {
