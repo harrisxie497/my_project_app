@@ -13,17 +13,19 @@
         </el-form-item>
         <el-form-item label="规则类型">
           <el-select v-model="searchForm.rule_type" placeholder="全部" clearable style="width: 120px">
-            <el-option label="格式化" value="FORMAT"></el-option>
-            <el-option label="计算" value="CALC"></el-option>
-            <el-option label="规则修复" value="RULE_FIX"></el-option>
-            <el-option label="常量" value="CONST"></el-option>
+            <el-option label="格式化(FORMAT)" value="FORMAT"></el-option>
+            <el-option label="计算(CALC)" value="CALC"></el-option>
+            <el-option label="规则修复(RULE_FIX)" value="RULE_FIX"></el-option>
+            <el-option label="AI(AI)" value="AI"></el-option>
+            <el-option label="常量(CONST)" value="CONST"></el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="执行器类型">
           <el-select v-model="searchForm.executor_type" placeholder="全部" clearable style="width: 120px">
-            <el-option label="程序" value="program"></el-option>
-            <el-option label="AI" value="ai"></el-option>
-            <el-option label="Web" value="web"></el-option>
+            <el-option label="程序(program)" value="program"></el-option>
+            <el-option label="AI(ai)" value="ai"></el-option>
+            <el-option label="Web(web)" value="web"></el-option>
+            <el-option label="批处理(batch)" value="batch"></el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
@@ -87,17 +89,19 @@
         </el-form-item>
         <el-form-item label="规则类型" prop="rule_type">
           <el-select v-model="form.rule_type" placeholder="请选择规则类型">
-            <el-option label="格式化" value="FORMAT"></el-option>
-            <el-option label="计算" value="CALC"></el-option>
-            <el-option label="规则修复" value="RULE_FIX"></el-option>
-            <el-option label="常量" value="CONST"></el-option>
+            <el-option label="格式化(FORMAT)" value="FORMAT"></el-option>
+            <el-option label="计算(CALC)" value="CALC"></el-option>
+            <el-option label="规则修复(RULE_FIX)" value="RULE_FIX"></el-option>
+            <el-option label="AI(AI)" value="AI"></el-option>
+            <el-option label="常量(CONST)" value="CONST"></el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="执行器类型" prop="executor_type">
           <el-select v-model="form.executor_type" placeholder="请选择执行器类型">
-            <el-option label="程序" value="program"></el-option>
-            <el-option label="AI" value="ai"></el-option>
-            <el-option label="Web" value="web"></el-option>
+            <el-option label="程序(program)" value="program"></el-option>
+            <el-option label="AI(ai)" value="ai"></el-option>
+            <el-option label="Web(web)" value="web"></el-option>
+            <el-option label="批处理(batch)" value="batch"></el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="规则配置" prop="schema_json">

@@ -22,12 +22,13 @@
         </el-form-item>
         <el-form-item label="字段类型">
           <el-select v-model="searchForm.field_type" placeholder="全部" clearable style="width: 120px">
-            <el-option label="复制" value="COPY"></el-option>
-            <el-option label="格式化" value="FORMAT"></el-option>
-            <el-option label="默认值" value="DEFAULT"></el-option>
-            <el-option label="计算" value="CALC"></el-option>
-            <el-option label="规则修复" value="RULE_FIX"></el-option>
-            <el-option label="常量" value="CONST"></el-option>
+            <el-option label="复制(COPY)" value="COPY"></el-option>
+            <el-option label="格式化(FORMAT)" value="FORMAT"></el-option>
+            <el-option label="默认值(DEFAULT)" value="DEFAULT"></el-option>
+            <el-option label="计算(CALC)" value="CALC"></el-option>
+            <el-option label="规则修复(RULE_FIX)" value="RULE_FIX"></el-option>
+            <el-option label="AI(AI)" value="AI"></el-option>
+            <el-option label="常量(CONST)" value="CONST"></el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
@@ -49,7 +50,7 @@
         <el-table-column prop="target_col" label="目标列" width="80"></el-table-column>
         <el-table-column prop="target_header" label="目标表头" width="150"></el-table-column>
         <el-table-column prop="field_type" label="字段类型" width="120"></el-table-column>
-        <el-table-column prop="order" label="顺序" width="80"></el-table-column>
+        <el-table-column prop="order_num" label="顺序" width="80"></el-table-column>
         <el-table-column prop="enabled" label="状态" width="80">
           <template #default="scope">
             <el-switch v-model="scope.row.enabled" @change="handleStatusChange(scope.row)"></el-switch>
@@ -117,12 +118,13 @@
         </el-form-item>
         <el-form-item label="字段类型" prop="field_type">
           <el-select v-model="form.field_type" placeholder="请选择字段类型">
-            <el-option label="复制" value="COPY"></el-option>
-            <el-option label="格式化" value="FORMAT"></el-option>
-            <el-option label="默认值" value="DEFAULT"></el-option>
-            <el-option label="计算" value="CALC"></el-option>
-            <el-option label="规则修复" value="RULE_FIX"></el-option>
-            <el-option label="常量" value="CONST"></el-option>
+            <el-option label="复制(COPY)" value="COPY"></el-option>
+            <el-option label="格式化(FORMAT)" value="FORMAT"></el-option>
+            <el-option label="默认值(DEFAULT)" value="DEFAULT"></el-option>
+            <el-option label="计算(CALC)" value="CALC"></el-option>
+            <el-option label="规则修复(RULE_FIX)" value="RULE_FIX"></el-option>
+            <el-option label="AI(AI)" value="AI"></el-option>
+            <el-option label="常量(CONST)" value="CONST"></el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="规则引用" prop="rule_ref">
@@ -256,6 +258,7 @@ export default {
         }
         
         const response = await fieldPipelinesService.getFieldPipelines(params);
+        console.log('字段映射列表响应:', response);
         this.fieldPipelines = response.data.items;
         this.total = response.data.total;
       } catch (error) {
@@ -353,7 +356,8 @@ export default {
      * @param {Object} row - 字段映射行数据
      */
     handleEdit(row) {
-      // 设置表单数据
+      console.log('编辑字段映射 - 原始数据:', row);
+      
       this.form = {
         file_type: row.file_type,
         target_col: row.target_col,
@@ -367,6 +371,9 @@ export default {
         rule_params_json: JSON.stringify(row.rule_params_json || {}),
         enabled: row.enabled
       };
+      
+      console.log('编辑字段映射 - 表单数据:', this.form);
+      
       // 设置编辑状态
       this.isEdit = true;
       this.currentEditId = row.id;

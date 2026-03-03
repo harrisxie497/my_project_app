@@ -31,6 +31,7 @@ class FieldPipelineUpdate(BaseModel):
 
 class FieldPipelineResponse(FieldPipelineBase):
     id: int = Field(..., description="ID")
+    rule_params_json: Optional[dict] = Field(None, description="规则参数JSON")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: Optional[datetime] = Field(None, description="更新时间")
     
