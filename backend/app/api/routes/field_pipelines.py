@@ -39,9 +39,9 @@ async def get_field_pipelines(
         query = query.filter(FieldPipeline.target_col == target_col)
     if rule_ref:
         # rule_ref 是 JSON 数组，需要查找数组中包含指定值的记录
-        # 使用 json_extract 函数来查询 JSON 数组
-        from sqlalchemy import func
-        query = query.filter(func.json_extract(FieldPipeline.rule_ref, '$[*]').like(f'%"{rule_ref}"%'))
+        # 使用 cast 和 like 来查询 JSON 字段
+        from sqlalchemy import func, cast, String
+        query = query.filter(cast(FieldPipeline.rule_ref, String).like(f'%"{rule_ref}"%'))
     if field_type:
         query = query.filter(FieldPipeline.field_type == field_type)
     if enabled is not None:

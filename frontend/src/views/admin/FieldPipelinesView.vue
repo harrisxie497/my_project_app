@@ -10,8 +10,8 @@
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="文件类型">
           <el-select v-model="searchForm.file_type" placeholder="全部" clearable style="width: 120px">
-            <el-option label="清关文件" value="customs"></el-option>
-            <el-option label="派送文件" value="delivery"></el-option>
+            <el-option label="清关文件" value="CUSTOMS"></el-option>
+            <el-option label="派送文件" value="DELIVERY"></el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="目标列">
@@ -91,8 +91,8 @@
       >
         <el-form-item label="文件类型" prop="file_type">
           <el-select v-model="form.file_type" placeholder="请选择文件类型">
-            <el-option label="清关文件" value="customs"></el-option>
-            <el-option label="派送文件" value="delivery"></el-option>
+            <el-option label="清关文件" value="CUSTOMS"></el-option>
+            <el-option label="派送文件" value="DELIVERY"></el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="目标列" prop="target_col">
