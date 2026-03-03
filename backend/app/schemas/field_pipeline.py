@@ -26,9 +26,22 @@ class FieldPipelineUpdate(BaseModel):
     source_cols: Optional[List[str]] = Field(None, description="源列列表")
     field_type: Optional[str] = Field(None, description="字段类型")
     rule_ref: Optional[List[str]] = Field(None, description="规则引用")
+    rule_params_json: Optional[Union[str, dict]] = Field(None, description="规则参数JSON")
     depends_on: Optional[List[str]] = Field(None, description="依赖列")
     order_num: Optional[int] = Field(None, description="执行顺序", ge=1)
     enabled: Optional[bool] = Field(None, description="启用状态")
+    
+    @field_validator('rule_params_json', mode='before')
+    @classmethod
+    def convert_rule_params_json(cls, v):
+        """将字典转换为 JSON 字符串"""
+        if v is None:
+            return None
+        if isinstance(v, dict):
+            return json.dumps(v, ensure_ascii=False)
+        if isinstance(v, str):
+            return v
+        return str(v)
 
 class FieldPipelineResponse(FieldPipelineBase):
     id: int = Field(..., description="ID")
