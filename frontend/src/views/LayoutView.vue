@@ -6,7 +6,7 @@
         <div>
           <div class="brand-title">日本清关/派送 Excel 自动处理系统</div>
           <div class="muted" style="font-size: 12px;">
-            当前用户：<span class="mono">{{ auth.user.username }}</span> · 角色：<span class="mono">{{ auth.user.role }}</span>
+            当前用户：<span class="mono">{{ getUsername() }}</span> · 角色：<span class="mono">{{ getRole() }}</span>
           </div>
         </div>
       </div>
@@ -75,6 +75,24 @@ const auth = ref({
   user: { id: "", username: "", display_name: "", role: "operator" }
 })
 
+// 安全地获取用户名
+const getUsername = () => {
+  try {
+    return auth.value?.user?.username || "未知用户"
+  } catch (e) {
+    return "未知用户"
+  }
+}
+
+// 安全地获取角色
+const getRole = () => {
+  try {
+    return auth.value?.user?.role || "operator"
+  } catch (e) {
+    return "operator"
+  }
+}
+
 const activeRoute = computed(() => {
   const path = route.path
   if (path === '/tasks') return 'tasks'
@@ -122,8 +140,15 @@ const checkAuth = () => {
   if (authStr) {
     try {
       const authData = JSON.parse(authStr)
-      auth.value = authData
-      return true
+      // 确保 authData 有 user 字段
+      if (authData && authData.user) {
+        auth.value = authData
+        return true
+      } else {
+        // 数据格式不正确，清除并返回 false
+        localStorage.removeItem('auth')
+        return false
+      }
     } catch (e) {
       localStorage.removeItem('auth')
       return false

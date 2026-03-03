@@ -18,11 +18,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
     # DeepSeek AI配置
-    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_API_KEY: str = "sk-6ad8a7e186134721b5aa41cfbff75693"
     DEEPSEEK_API_URL: str = "https://api.deepseek.com/v1"
     
     # 汇率API配置
-    EXCHANGE_RATE_API_KEY: str = ""
+    EXCHANGE_RATE_API_KEY: str = "c06e7281b839d210bd636db0"
     EXCHANGE_RATE_API_URL: str = "https://v6.exchangerate-api.com/v6"
     
     # 文件存储配置

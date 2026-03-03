@@ -14,10 +14,18 @@ instance.interceptors.request.use(
   config => {
     // 从本地存储获取token并添加到请求头
     const auth = localStorage.getItem('auth');
+    console.log('请求拦截器 - auth:', auth);
+    
     if (auth) {
-      const authData = JSON.parse(auth);
-      if (authData.token) {
-        config.headers.Authorization = `Bearer ${authData.token}`;
+      try {
+        const authData = JSON.parse(auth);
+        console.log('请求拦截器 - authData:', authData);
+        if (authData.token) {
+          config.headers.Authorization = `Bearer ${authData.token}`;
+          console.log('请求拦截器 - 已添加 Authorization 头');
+        }
+      } catch (e) {
+        console.error('请求拦截器 - 解析 auth 失败:', e);
       }
     }
     return config;

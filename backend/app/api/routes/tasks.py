@@ -591,7 +591,15 @@ async def get_tasks(
     tasks = query.order_by(Task.created_at.desc()).offset(skip).limit(page_size).all()
     
     # 转换为响应模型
-    task_list = [TaskListResponse.from_orm(task) for task in tasks]
+    task_list = []
+    for task in tasks:
+        task_dict = TaskListResponse.from_orm(task).model_dump()
+        # 添加创建人用户名
+        if task.created_by_user_id:
+            from app.models.user import User
+            creator = db.query(User).filter(User.id == task.created_by_user_id).first()
+            task_dict['created_by_user_name'] = creator.username if creator else '未知用户'
+        task_list.append(TaskListResponse(**task_dict))
     
     logger.info(f"获取任务列表成功 - 用户ID: {current_user.id}, 返回数量: {len(task_list)}, 总数: {total}")
     

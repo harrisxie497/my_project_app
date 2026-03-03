@@ -192,8 +192,11 @@ const fetchTasks = async () => {
       queryParams.declare_date_to = filters.arrival_date_range[1];
     }
     
+    console.log('获取任务列表 - 请求参数:', queryParams);
+    
     // 获取任务列表，axios拦截器已经处理了response.data
     const response = await taskService.getTasks(queryParams);
+    console.log('获取任务列表 - 响应:', response);
     tasks.value = response.data?.items || [];
   } catch (error) {
     ElMessage.error('获取任务列表失败');
@@ -205,16 +208,16 @@ const fetchTasks = async () => {
 
 // 监听过滤条件变化
 const filteredTasks = computed(() => {
-  return tasks.value.filter(t => {
-    if (filters.file_type && t.file_type !== filters.file_type) return false;
-    if (filters.status && t.status !== filters.status) return false;
-    if (filters.flight_no && !String(t.flight_no || '').includes(filters.flight_no)) return false;
-    if (filters.created_by && !String(t.created_by_user_name || '').includes(filters.created_by)) return false;
+  return tasks.value.filter(task => {
+    if (filters.file_type && task.file_type !== filters.file_type) return false;
+    if (filters.status && task.status !== filters.status) return false;
+    if (filters.flight_no && !String(task.flight_no || '').includes(filters.flight_no)) return false;
+    if (filters.created_by && !String(task.created_by_user_name || '').includes(filters.created_by)) return false;
     // 处理到达日期范围过滤
     if (filters.arrival_date_range && filters.arrival_date_range.length === 2) {
       const fromDate = new Date(filters.arrival_date_range[0]);
       const toDate = new Date(filters.arrival_date_range[1]);
-      const taskDate = new Date(t.declare_date);
+      const taskDate = new Date(task.declare_date);
       if (taskDate < fromDate || taskDate > toDate) return false;
     }
     return true;

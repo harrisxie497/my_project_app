@@ -56,13 +56,19 @@ const doLogin = async () => {
     const response = await authService.login(loginForm.username, loginForm.password)
     console.log("登录响应:", response)
     
-    if (response && response.data) {
+    // 响应结构：response.data = GeneralResponse, response.data.data = Token
+    if (response && response.data && response.data.data) {
+      const tokenData = response.data.data
+      
       // 保存认证信息到本地存储
+      console.log("保存认证信息:", tokenData)
       authService.saveAuth({
         loggedIn: true,
-        token: response.data.access_token,
-        user: response.data.user
+        token: tokenData.access_token,
+        user: tokenData.user
       })
+      
+      console.log("认证信息已保存到 localStorage")
       
       ElMessage.success("登录成功")
       router.push('/tasks')

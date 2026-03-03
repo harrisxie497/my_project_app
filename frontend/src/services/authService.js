@@ -4,7 +4,13 @@ import axios from '../utils/axios';
 const authService = {
   // 登录
   login(username, password) {
-    return axios.post('/auth/login', {
+    // 创建一个新的 axios 实例，避免被全局配置影响
+    const loginAxios = axios.create({
+      baseURL: '/api/v1/',
+      timeout: 10000
+    });
+    
+    return loginAxios.post('/auth/login', {
       username,
       password
     }, {
@@ -32,7 +38,9 @@ const authService = {
 
   // 保存认证信息到本地存储
   saveAuth(authData) {
+    console.log('保存认证信息到 localStorage:', authData);
     localStorage.setItem('auth', JSON.stringify(authData));
+    console.log('已保存，验证读取:', localStorage.getItem('auth'));
   },
 
   // 从本地存储获取认证信息

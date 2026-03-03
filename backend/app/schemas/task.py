@@ -65,6 +65,7 @@ class TaskListResponse(TaskBase):
     declare_date: Optional[str] = None
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
+    created_by_user_name: Optional[str] = None
     
     class Config:
         from_attributes = True
