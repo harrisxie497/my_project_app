@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional, Union, Any
 from datetime import datetime
+import json
 
 class FieldPipelineBase(BaseModel):
     file_type: str = Field(..., description="文件类型", example="DELIVERY")
@@ -31,9 +32,21 @@ class FieldPipelineUpdate(BaseModel):
 
 class FieldPipelineResponse(FieldPipelineBase):
     id: int = Field(..., description="ID")
-    rule_params_json: Optional[str] = Field(None, description="规则参数JSON")
+    rule_params_json: Optional[Union[str, dict]] = Field(None, description="规则参数JSON")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: Optional[datetime] = Field(None, description="更新时间")
+    
+    @field_validator('rule_params_json', mode='before')
+    @classmethod
+    def convert_rule_params_json(cls, v):
+        """将字典转换为 JSON 字符串"""
+        if v is None:
+            return None
+        if isinstance(v, dict):
+            return json.dumps(v, ensure_ascii=False)
+        if isinstance(v, str):
+            return v
+        return str(v)
     
     class Config:
         from_attributes = True
