@@ -743,6 +743,7 @@ class CustomsProcessor(BaseProcessor):
                         remove_dash = rule_params.get('remove_dash', False)
                         remove_leading_trailing_spaces = rule_params.get('remove_leading_trailing_spaces', False)
                         remove_middle_spaces = rule_params.get('remove_middle_spaces', False)
+                        add_prefix_zero = rule_params.get('add_prefix_zero', False)
                         
                         # 处理源值
                         if source_value is None:
@@ -762,6 +763,11 @@ class CustomsProcessor(BaseProcessor):
                             # 去除中间空格
                             if remove_middle_spaces and isinstance(source_value, str):
                                 source_value = source_value.replace(' ', '')
+                            
+                            # 添加前缀0（日本电话号码）
+                            if add_prefix_zero and isinstance(source_value, str):
+                                if source_value and not source_value.startswith('0'):
+                                    source_value = '0' + source_value
                             
                             # 验证regex
                             import re
